@@ -1,0 +1,103 @@
+@use '../../styles/colors' as *;
+.pp-footer {
+  background: #101721;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 40px 16px 40px;
+}
+
+/* Inner layout */
+.pp-footer__inner {
+  max-width: 1200px;
+  margin: 0 auto;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+/* Brand */
+.pp-footer__brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  font-size: 15px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.pp-footer__logo {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: #1f6fff;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  font-size: 12px;
+  color: #ffffff;
+}
+
+/* Links */
+.pp-footer__links {
+  display: flex;
+  gap: 28px;
+
+  a {
+    font-size: 14px;
+    color: #c7d2fe;
+    text-decoration: none;
+
+    &:hover {
+      color: #ffffff;
+    }
+  }
+}
+
+/* Social */
+.pp-footer__social {
+  display: flex;
+  gap: 14px;
+
+  a {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    background: rgba(255, 255, 255, 0.08);
+    color: #ffffff;
+    font-size: 18px;
+    text-decoration: none;
+
+    &:hover {
+      background: #1f6fff;
+    }
+  }
+}
+
+/* Copyright */
+.pp-footer__copy {
+  margin-top: 20px;
+  text-align: center;
+
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+@media (max-width: 640px) {
+  .pp-footer__inner {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .pp-footer__links {
+    gap: 18px;
+  }
+}

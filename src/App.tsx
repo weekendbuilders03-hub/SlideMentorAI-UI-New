@@ -1,51 +1,28 @@
-import './App.css';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import Auth from './pages/Auth/Auth';
-import Layout from './pages/Layout/Layout';
-import Pricing from './pages/Pricing/Pricing';
-import AppRoutes from './Routes/AppRoutes';
+import React, { useEffect } from 'react';
+import { BrowserRouter } from 'react-router-dom';
+import { useAppDispatch, useAppSelector } from './store/hooks';
+import { initializeAuth } from './store/slices/authSlice';
+import AppRoutes from './routes/AppRoutes';
 
-import ProtectedRoute from './Routes/protectedRoute';
-import { Suspense, useEffect } from 'react';
-import { useAppDispatch } from './store/hooks';
-import { initializeAuth } from './store/features/auth';
-
-
-function App() {
+const AppInner: React.FC = () => {
   const dispatch = useAppDispatch();
+  const mode = useAppSelector((state) => state.theme.mode);
 
-  // Initialize auth state from sessionStorage on app load
+  /* Restore auth from session storage on mount */
   useEffect(() => {
     dispatch(initializeAuth());
   }, [dispatch]);
 
+  /* Apply theme to the document root */
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', mode);
+  }, [mode]);
+
   return (
-    <Router>  
-      <Routes>
-        {/* Public routes */}
-        <Route path="/" element={<Layout />} />
-        <Route path="/authentication" element={<Auth />} />
-        <Route path="/pricing" element={<Pricing />} />
-
-        {/* Protected routes with layout */}
-        <Route element={<ProtectedRoute />}>
-          <Route>
-            {AppRoutes.filter((i) => i.loadable).map((route, index) => (
-              <Route
-                key={index}
-                path={route.path}
-                element={
-                  <Suspense fallback={<div>Loading...</div>}>
-                    <route.component />
-                  </Suspense>
-                }
-              />
-            ))}
-          </Route>
-        </Route>
-      </Routes>
-    </Router>
+    <BrowserRouter>
+      <AppRoutes />
+    </BrowserRouter>
   );
-}
+};
 
-export default App;
+export default AppInner;

@@ -1,0 +1,254 @@
+/* ── Auth shell ── */
+.authShell {
+  min-height: 100vh;
+  display: flex;
+}
+
+/* ── Brand panel (left) ── */
+.authBrand {
+  flex: 1;
+  background: var(--navy);
+  color: #edebf5;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 44px;
+  position: relative;
+  overflow: hidden;
+}
+
+.authBrand::after {
+  content: '';
+  position: absolute;
+  top: -20%;
+  right: -10%;
+  width: 60%;
+  height: 60%;
+  background: radial-gradient(circle, rgba(228, 169, 79, 0.16), transparent 70%);
+  pointer-events: none;
+}
+
+.authBrandTop {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  position: relative;
+  z-index: 1;
+}
+
+.brandMark {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  background: linear-gradient(135deg, var(--spotlight), #8a5a1e);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: 16px;
+  color: #1b1300;
+  flex-shrink: 0;
+}
+
+.brandName {
+  font-family: var(--serif);
+  font-size: 19px;
+  font-weight: 500;
+}
+
+.authBrandMid {
+  position: relative;
+  z-index: 1;
+  max-width: 420px;
+}
+
+.authBrandMid h1 {
+  font-family: var(--serif);
+  font-weight: 500;
+  font-size: 34px;
+  line-height: 1.25;
+  margin-bottom: 16px;
+}
+
+.authBrandMid p {
+  font-size: 13.5px;
+  color: rgba(237, 235, 245, 0.65);
+  line-height: 1.7;
+}
+
+.authQuote {
+  position: relative;
+  z-index: 1;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  padding-top: 20px;
+  max-width: 420px;
+}
+
+.authQuote p {
+  font-size: 13px;
+  font-style: italic;
+  color: rgba(237, 235, 245, 0.75);
+  line-height: 1.6;
+  margin-bottom: 10px;
+}
+
+.authQuote span {
+  font-size: 11.5px;
+  color: rgba(237, 235, 245, 0.45);
+  font-weight: 600;
+}
+
+/* ── Form panel (right) ── */
+.authFormSide {
+  width: 460px;
+  flex-shrink: 0;
+  background: var(--paper);
+  display: flex;
+  flex-direction: column;
+  padding: 36px 48px;
+  overflow-y: auto;
+}
+
+.authFormTop {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 30px;
+}
+
+.authFormWrap {
+  max-width: 340px;
+  margin: 0 auto;
+  width: 100%;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.authH {
+  font-family: var(--serif);
+  font-size: 25px;
+  font-weight: 500;
+  margin-bottom: 6px;
+  color: var(--ink);
+}
+
+.authSub {
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  margin-bottom: 26px;
+}
+
+.socialRow {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  margin-bottom: 20px;
+}
+
+.socialBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  padding: 13px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: var(--sans);
+  color: var(--ink);
+  transition: var(--ease);
+}
+
+.socialBtn:hover {
+  border-color: var(--ink-muted);
+  background: var(--surface-sunken);
+}
+
+.socialIcon {
+  font-size: 16px;
+}
+
+.forgotRow {
+  display: flex;
+  justify-content: flex-end;
+  margin: -8px 0 16px;
+}
+
+.forgotRow a {
+  font-size: 11.5px;
+  color: var(--ink-muted);
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.forgotRow a:hover {
+  color: var(--ink);
+}
+
+.authFoot {
+  margin-top: 20px;
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  text-align: center;
+}
+
+.authFoot a {
+  color: var(--spotlight-ink);
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.authFoot a:hover {
+  text-decoration: underline;
+}
+
+.authTerms {
+  font-size: 11px;
+  color: var(--ink-muted);
+  margin-top: 16px;
+  line-height: 1.6;
+  text-align: center;
+}
+
+.authTerms a {
+  color: var(--ink-soft);
+  text-decoration: underline;
+}
+
+.errorMsg {
+  background: var(--coral-soft);
+  color: var(--coral);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  margin-bottom: 14px;
+}
+
+.successMsg {
+  background: var(--teal-soft);
+  color: var(--teal);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  margin-bottom: 14px;
+  line-height: 1.5;
+}
+
+/* Responsive */
+@media (max-width: 820px) {
+  .authBrand {
+    display: none;
+  }
+
+  .authFormSide {
+    width: 100%;
+  }
+}

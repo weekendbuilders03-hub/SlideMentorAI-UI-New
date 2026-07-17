@@ -1,19 +1,17 @@
-
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import 'antd/dist/reset.css';
-import './index.css';
-import App from './App.tsx';
 import { Provider } from 'react-redux';
-import { store } from './store/store';
-import { GoogleOAuthProvider } from '@react-oauth/google';
+import { store } from './store/index';
+import { ToastProvider } from './components/common/Toast/Toast';
+import './index.css';
+import App from './App';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <Provider store={store}>
-      <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>
+      <ToastProvider>
         <App />
-      </GoogleOAuthProvider>
+      </ToastProvider>
     </Provider>
-  </StrictMode>
+  </StrictMode>,
 );

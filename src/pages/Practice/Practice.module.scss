@@ -1,0 +1,128 @@
+.shell {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 22px;
+}
+
+.strip {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.stripThumb {
+  border: 2px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  padding: 10px;
+  cursor: pointer;
+  transition: var(--ease);
+}
+
+.stripThumb.active {
+  border-color: var(--spotlight);
+  background: var(--spotlight-soft);
+}
+
+.thumbNum {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--ink-muted);
+  margin-bottom: 3px;
+}
+
+.thumbTitle {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.stripThumb.active .thumbTitle {
+  color: var(--spotlight-ink);
+}
+
+.stage {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.stagePreview {
+  aspect-ratio: 16 / 9;
+  background: var(--surface-sunken);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 6px;
+  border-bottom: 1px solid var(--line);
+}
+
+.stagePreview h2 {
+  font-family: var(--serif);
+  font-size: 26px;
+  font-weight: 500;
+}
+
+.stagePreview p {
+  font-size: 12.5px;
+  color: var(--ink-muted);
+}
+
+.stageControls {
+  padding: 22px 26px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.timer {
+  font-family: var(--mono);
+  font-size: 22px;
+  font-weight: 500;
+}
+
+.recBtn {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: var(--coral);
+  color: #fff;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--ease);
+  flex-shrink: 0;
+}
+
+.recBtn.recording {
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+.liveMetrics {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.metric {
+  text-align: center;
+}
+
+.metricVal {
+  font-family: var(--mono);
+  font-size: 19px;
+  font-weight: 500;
+}
+
+.metricLabel {
+  font-size: 10.5px;
+  color: var(--ink-muted);
+}

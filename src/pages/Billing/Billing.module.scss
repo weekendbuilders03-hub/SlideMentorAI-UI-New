@@ -1,0 +1,125 @@
+.grid {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr;
+  gap: 14px;
+  margin-bottom: 28px;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 22px 24px;
+}
+
+.cardH {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--ink-muted);
+  margin-bottom: 14px;
+}
+
+.planRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.planName {
+  font-family: var(--serif);
+  font-size: 20px;
+  margin-bottom: 3px;
+}
+
+.planPrice {
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
+.payRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.cardIcon {
+  width: 40px;
+  height: 28px;
+  border-radius: 5px;
+  background: var(--navy);
+  color: #edebf5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  flex-shrink: 0;
+}
+
+.cardDetailName {
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.cardDetailSub {
+  font-size: 11px;
+  color: var(--ink-muted);
+}
+
+.invoiceTable {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.invoiceRow {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 13px 18px;
+  border-bottom: 1px solid var(--line);
+  font-size: 12.5px;
+}
+
+.invoiceRow:last-child { border-bottom: none; }
+
+.invoiceDate {
+  width: 100px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-muted);
+  flex-shrink: 0;
+}
+
+.invoiceDesc {
+  flex: 1;
+  font-weight: 600;
+}
+
+.invoiceAmt {
+  font-family: var(--mono);
+  width: 70px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.invoiceDl {
+  color: var(--spotlight-ink);
+  font-weight: 600;
+  cursor: pointer;
+  width: 80px;
+  text-align: right;
+  flex-shrink: 0;
+  font-size: 11.5px;
+}
+
+@media (max-width: 750px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}

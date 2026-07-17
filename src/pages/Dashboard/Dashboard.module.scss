@@ -1,0 +1,226 @@
+.greet {
+  font-family: var(--serif);
+  font-size: 26px;
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.greetSub {
+  font-size: 13px;
+  color: var(--ink-soft);
+  margin-bottom: 28px;
+}
+
+/* ── Stat grid ── */
+.statGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin-bottom: 26px;
+}
+
+.statCard {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+}
+
+.statVal {
+  font-family: var(--mono);
+  font-size: 24px;
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.statLabel {
+  font-size: 11.5px;
+  color: var(--ink-soft);
+}
+
+/* ── Resume card ── */
+.resumeCard {
+  background: var(--navy);
+  color: #edebf5;
+  border-radius: var(--radius-lg);
+  padding: 24px 26px;
+  margin-bottom: 26px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.resumeLeft {
+  flex: 1;
+  min-width: 220px;
+}
+
+.resumeTitle {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: rgba(237, 235, 245, 0.55);
+  margin-bottom: 6px;
+  font-weight: 700;
+}
+
+.resumeDeck {
+  font-family: var(--serif);
+  font-size: 19px;
+  margin-bottom: 10px;
+}
+
+.resumeTrack {
+  width: 260px;
+  max-width: 100%;
+  height: 5px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+
+.resumeFill {
+  height: 100%;
+  width: 62%;
+  background: var(--spotlight);
+  border-radius: 3px;
+}
+
+.resumeNote {
+  font-size: 11px;
+  color: rgba(237, 235, 245, 0.55);
+}
+
+/* ── Section heading ── */
+.sectionH {
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 14px;
+}
+
+/* ── Action grid ── */
+.actionGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+  margin-bottom: 30px;
+}
+
+.actionCard {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 22px;
+  cursor: pointer;
+  transition: var(--ease);
+}
+
+.actionCard:hover {
+  border-color: var(--spotlight);
+  box-shadow: var(--shadow);
+}
+
+.actionIcon {
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  background: var(--surface-sunken);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  margin-bottom: 12px;
+}
+
+.actionTitle {
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.actionSub {
+  font-size: 12px;
+  color: var(--ink-soft);
+  line-height: 1.5;
+}
+
+/* ── Deck table ── */
+.deckTable {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+
+.deckTableHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 18px 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.deckTableHeader span {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.deckTableHeader a {
+  font-size: 12px;
+  color: var(--spotlight-ink);
+  font-weight: 600;
+}
+
+.deckRow {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--line);
+  font-size: 12.5px;
+}
+
+.deckRow:last-child {
+  border-bottom: none;
+}
+
+.deckThumb {
+  width: 38px;
+  height: 28px;
+  border-radius: 5px;
+  background: var(--surface-sunken);
+  border: 1px solid var(--line-strong);
+  flex-shrink: 0;
+}
+
+.deckName {
+  flex: 1;
+  font-weight: 600;
+}
+
+.deckMeta {
+  color: var(--ink-muted);
+  font-family: var(--mono);
+  font-size: 11px;
+}
+
+/* Responsive */
+@media (max-width: 1100px) {
+  .statGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 700px) {
+  .actionGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .statGrid {
+    grid-template-columns: 1fr 1fr;
+  }
+}

@@ -1,18 +1,28 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAppSelector } from '../../store/hooks';
 import { practiceService } from '../../api/services/practiceService';
 import { cn } from '../../utils/cn';
 import type { SpeechIndicator, TimelineSegment } from '../../types/practice';
 import styles from './Speech.module.scss';
 
 const SpeechPage: React.FC = () => {
+  const navigate = useNavigate();
+  const session = useAppSelector((state) => state.session.current);
   const [indicators, setIndicators] = useState<SpeechIndicator[]>([]);
   const [timeline, setTimeline] = useState<TimelineSegment[]>([]);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | number | null>(null);
+
+  const sessionIdNum = typeof session?.id === 'number'
+    ? session.id
+    : parseInt(session?.id ?? '1', 10) || 1;
+
+  const sessionName = session?.deckName || 'Presentation Session';
 
   useEffect(() => {
-    practiceService.getSpeechIndicators('sess1').then(setIndicators);
-    practiceService.getTimeline('sess1').then(setTimeline);
-  }, []);
+    practiceService.getSpeechIndicators(sessionIdNum).then(setIndicators);
+    practiceService.getTimeline(sessionIdNum).then(setTimeline);
+  }, [sessionIdNum]);
 
   const maxWpm = Math.max(...timeline.map((t) => t.wpm), 1);
 
@@ -21,11 +31,16 @@ const SpeechPage: React.FC = () => {
       <div className={styles.header}>
         <div>
           <h2 className={styles.title}>Speech Feedback</h2>
-          <p className={styles.sub}>Q4 Sales Strategy Final · 14:22 · Oct 24, 2023</p>
+          <p className={styles.sub}>
+            {sessionName}
+            {session?.createdAt
+              ? ` · ${new Date(session.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
+              : ` · ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`}
+          </p>
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
-          <button className="btn btn-secondary btn-sm" id="export-speech-btn">Export report</button>
-          <button className="btn btn-spotlight btn-sm" id="practice-again-btn">Practice again</button>
+          <button className="btn btn-secondary btn-sm" id="export-speech-btn" onClick={() => navigate('/sheet')}>Export report</button>
+          <button className="btn btn-spotlight btn-sm" id="practice-again-btn" onClick={() => navigate('/practice')}>Practice again</button>
         </div>
       </div>
 

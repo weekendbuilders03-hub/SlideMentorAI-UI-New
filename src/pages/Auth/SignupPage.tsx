@@ -1,26 +1,31 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
-import { signupWithCredentials } from '../../store/slices/authSlice';
+import { loginWithGoogle } from '../../store/slices/authSlice';
+import { GoogleLogin } from '@react-oauth/google';
 import ThemeToggle from '../../components/common/ThemeToggle/ThemeToggle';
-import Button from '../../components/common/Button/Button';
 import s from './Auth.module.scss';
 
 const SignupPage: React.FC = () => {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
-  const { loading, error } = useAppSelector((state) => state.auth);
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const { error } = useAppSelector((state) => state.auth);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const result = await dispatch(signupWithCredentials({ firstName, lastName, email, password }));
-    if (signupWithCredentials.fulfilled.match(result)) {
+  const handleGoogleSuccess = async (credentialResponse: any) => {
+    const tokenId = credentialResponse?.credential;
+    if (!tokenId) {
+      console.error('[Google OAuth] No credential returned from Google.');
+      return;
+    }
+    const result = await dispatch(loginWithGoogle({ idToken: tokenId }));
+    if (loginWithGoogle.fulfilled.match(result)) {
       navigate('/dashboard');
     }
+  };
+
+  const handleGoogleError = () => {
+    console.error('[Google OAuth] Signup failed — check Google Cloud Console Authorized Origins.');
+    dispatch({ type: 'auth/setError', payload: 'Google sign-in failed. Please ensure pop-ups are allowed and try again.' });
   };
 
   return (
@@ -61,80 +66,17 @@ const SignupPage: React.FC = () => {
 
           {/* Social */}
           <div className={s.socialRow}>
-            <button id="signup-google-btn" className={s.socialBtn}>
-              <span className={s.socialIcon}>G</span>
-              Sign up with Google
-            </button>
+            <GoogleLogin
+              onSuccess={handleGoogleSuccess}
+              onError={handleGoogleError}
+            />
           </div>
 
           <div className="divider">or</div>
 
           {error && <div className={s.errorMsg}>{error}</div>}
 
-          <form onSubmit={handleSubmit} id="signup-form" noValidate>
-            <div style={{ display: 'flex', gap: '12px' }}>
-              <div className="field" style={{ flex: 1 }}>
-                <label htmlFor="signup-first">First name</label>
-                <input
-                  id="signup-first"
-                  type="text"
-                  placeholder="Alex"
-                  value={firstName}
-                  onChange={(e) => setFirstName(e.target.value)}
-                  required
-                  autoComplete="given-name"
-                />
-              </div>
-              <div className="field" style={{ flex: 1 }}>
-                <label htmlFor="signup-last">Last name</label>
-                <input
-                  id="signup-last"
-                  type="text"
-                  placeholder="Johnson"
-                  value={lastName}
-                  onChange={(e) => setLastName(e.target.value)}
-                  required
-                  autoComplete="family-name"
-                />
-              </div>
-            </div>
-
-            <div className="field">
-              <label htmlFor="signup-email">Work email</label>
-              <input
-                id="signup-email"
-                type="email"
-                placeholder="you@company.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                autoComplete="email"
-              />
-            </div>
-
-            <div className="field">
-              <label htmlFor="signup-password">Password</label>
-              <input
-                id="signup-password"
-                type="password"
-                placeholder="Min. 8 characters"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                minLength={8}
-                autoComplete="new-password"
-              />
-            </div>
-
-            <Button
-              type="submit"
-              size="lg"
-              disabled={loading}
-              id="signup-submit-btn"
-            >
-              {loading ? 'Creating account…' : 'Create free account'}
-            </Button>
-          </form>
+          {/* Email/password signup is no longer supported. Users should sign up via Google above. */}
 
           <p className={s.authFoot}>
             Already have an account?{' '}

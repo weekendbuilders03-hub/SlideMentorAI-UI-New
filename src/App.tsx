@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { BrowserRouter } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from './store/hooks';
-import { initializeAuth } from './store/slices/authSlice';
+import { initializeAuth, fetchCurrentUser } from './store/slices/authSlice';
 import AppRoutes from './routes/AppRoutes';
 
 const AppInner: React.FC = () => {
@@ -11,6 +11,10 @@ const AppInner: React.FC = () => {
   /* Restore auth from session storage on mount */
   useEffect(() => {
     dispatch(initializeAuth());
+    // Only fetch user profile if a token exists in session storage
+    if (sessionStorage.getItem('token')) {
+      dispatch(fetchCurrentUser());
+    }
   }, [dispatch]);
 
   /* Apply theme to the document root */

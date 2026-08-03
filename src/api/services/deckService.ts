@@ -1,110 +1,134 @@
 /**
- * Deck service — placeholder implementations.
- * Replace with real `apiClient` calls when the backend is ready.
+ * Deck & Session Service — Real API Integration.
+ * Replaces mock data with live backend endpoints mapped in endpoints.ts.
  */
-import type { Deck, DeckSession, SlideReviewItem } from '../../types/deck';
-
-const MOCK_DECKS: Deck[] = [
-  {
-    id: 'd1',
-    name: 'Investor Pitch Deck v2',
-    slideCount: 14,
-    duration: '18:32',
-    status: 'done',
-    lastModified: 'Oct 24, 2023',
-    progress: 100,
-  },
-  {
-    id: 'd2',
-    name: 'Q4 Sales Strategy Final',
-    slideCount: 10,
-    duration: '12:45',
-    status: 'progress',
-    lastModified: 'Oct 22, 2023',
-    progress: 62,
-  },
-  {
-    id: 'd3',
-    name: 'Team Sync — Project Alpha',
-    slideCount: 8,
-    duration: '12:00',
-    status: 'done',
-    lastModified: 'Oct 19, 2023',
-    progress: 100,
-  },
-];
-
-const MOCK_REVIEW_ITEMS: SlideReviewItem[] = [
-  {
-    id: 'r1',
-    slideNumber: 1,
-    title: 'Market Opportunity',
-    wordCount: 156,
-    readTime: '1m 8s',
-    issues: [
-      { type: 'coral', label: '3 dense bullets' },
-      { type: 'amber', label: 'Jargon detected' },
-    ],
-    originalHeadline: 'The Global Market for AI-Driven Presentation Tools Is Expanding Rapidly',
-    originalBullets: [
-      'TAM of $4.2B in 2023 expanding to $9.8B by 2027 at 18.4% CAGR',
-      'Enterprise segment capturing 67% of spend driven by remote-work adoption',
-      'Key verticals: financial services, healthcare, SaaS with >40% penetration',
-    ],
-    suggestedHeadline: '$9.8B Market by 2027 — We\'re Positioned at the Centre',
-    suggestedBullets: [
-      '18.4% CAGR — fastest-growing enterprise productivity segment',
-      '67% of spend in enterprise; SaaS, FinServ, Health lead',
-      'Remote-work tailwind accelerating adoption',
-    ],
-    reductionPercent: 31,
-    status: 'pending',
-  },
-  {
-    id: 'r2',
-    slideNumber: 3,
-    title: 'Product Features',
-    wordCount: 88,
-    readTime: '0m 48s',
-    issues: [{ type: 'amber', label: 'Weak opener' }],
-    originalHeadline: 'Our Platform Features',
-    originalBullets: [
-      'Real-time AI feedback on pacing and filler words',
-      'Slide content analysis with one-click editing',
-      'Practice mode with recording and playback',
-    ],
-    suggestedHeadline: 'Present Confidently — AI Coaches You in Real Time',
-    suggestedBullets: [
-      'Instant pacing & filler-word alerts mid-practice',
-      'One-click slide edits from AI suggestions',
-      'Record → Review → Improve loop in minutes',
-    ],
-    reductionPercent: 12,
-    status: 'pending',
-  },
-];
+import apiClient, { unwrapResponse } from '../axios';
+import type { ApiResponse } from '../axios';
+import { ENDPOINTS } from '../endpoints';
+import { sessionService } from './sessionService';
+import type {
+  Deck,
+  DeckSession,
+  SlideReviewItem,
+  BackendSession,
+  BackendSlide,
+  RewriteResultResponse,
+  ModifySuggestionRequest,
+} from '../../types/deck';
 
 export const deckService = {
+  /**
+   * List all presentation sessions for the user.
+   * GET /api/v1/sessions
+   */
   listDecks: async (): Promise<Deck[]> => {
-    // TODO: const { data } = await apiClient.get<Deck[]>(ENDPOINTS.decks.list);
-    return Promise.resolve(MOCK_DECKS);
+    const { data } = await apiClient.get<ApiResponse<BackendSession[]>>(
+      ENDPOINTS.sessions.list
+    );
+    const sessions = unwrapResponse(data) ?? [];
+    return sessions.map((sess) => ({
+      id: sess.id,
+      name: sess.title || `Presentation Session #${sess.id}`,
+      slideCount: sess.slidesCount ?? 0,
+      duration: `${sess.presentationTimeMinutes ?? 15}:00`,
+      status: sess.status === 'completed' ? 'done' : 'progress',
+      lastModified: sess.createdAt ? new Date(sess.createdAt).toLocaleDateString() : 'Today',
+      progress: sess.status === 'completed' ? 100 : 50,
+    }));
   },
 
-  uploadDeck: async (_file: File): Promise<DeckSession> => {
-    // TODO: upload multipart/form-data and return session
-    return Promise.resolve({
-      id: 'sess1',
-      deckId: 'd_new',
-      deckName: _file.name.replace(/\.[^.]+$/, ''),
-      currentPhase: 1,
+  /**
+   * Upload a deck file.
+   * 1. Creates a new session via POST /api/v1/sessions
+   * 2. Uploads the slide file via POST /api/v1/slides/upload (multipart)
+   */
+  uploadDeck: async (file: File): Promise<DeckSession> => {
+    // 1. Create new session
+    const sessionName = file.name.replace(/\.[^.]+$/, '');
+    const newSession = await sessionService.createSession({
+      title: sessionName,
       audience: 'Executives',
-      timeMinutes: 15,
-      createdAt: new Date().toISOString(),
+      presentationTimeMinutes: 15,
     });
+
+    // 2. Upload file to session
+    try {
+      await sessionService.uploadSlides(newSession.id, file);
+    } catch (err) {
+      console.warn('Slide upload notification:', err);
+    }
+
+    return {
+      id: newSession.id,
+      deckId: newSession.id,
+      deckName: newSession.title || sessionName,
+      currentPhase: 1,
+      audience: newSession.audience || 'Executives',
+      timeMinutes: newSession.presentationTimeMinutes || 15,
+      createdAt: newSession.createdAt || new Date().toISOString(),
+    };
   },
 
-  getReviewItems: async (_deckId: string): Promise<SlideReviewItem[]> => {
-    // TODO: const { data } = await apiClient.get(ENDPOINTS.decks.review(_deckId));
-    return Promise.resolve(MOCK_REVIEW_ITEMS);
+  /**
+   * Get slide review items for a session.
+   * GET /sessions/{sessionId}/slides & GET /api/v1/slides/{slideId}/rewrite
+   */
+  getReviewItems: async (sessionIdInput: string | number): Promise<SlideReviewItem[]> => {
+    const numericId = typeof sessionIdInput === 'number'
+      ? sessionIdInput
+      : parseInt(sessionIdInput, 10) || 1;
+
+    let slides: BackendSlide[] = [];
+    try {
+      slides = await sessionService.getSessionSlides(numericId);
+    } catch {
+      slides = [];
+    }
+
+    if (!slides || slides.length === 0) {
+      return [];
+    }
+
+    const reviewItems: SlideReviewItem[] = await Promise.all(
+      slides.map(async (slide) => {
+        let rewrite: Partial<RewriteResultResponse> = {};
+        try {
+          rewrite = await sessionService.getRewriteResults(slide.id);
+        } catch {
+          // No rewrite generated yet for this slide
+        }
+
+        return {
+          id: slide.id,
+          slideId: slide.id,
+          suggestionId: rewrite.suggestionId,
+          slideNumber: slide.slideNumber,
+          title: slide.title || `Slide ${slide.slideNumber}`,
+          wordCount: slide.wordCount ?? 0,
+          readTime: `${Math.ceil((slide.wordCount ?? 0) / 130)}m`,
+          issues: slide.issues ?? [],
+          originalHeadline: rewrite.originalHeadline || slide.originalHeadline || slide.title || '',
+          originalBullets: rewrite.originalBullets || slide.originalBullets || [],
+          suggestedHeadline: rewrite.suggestedHeadline || slide.suggestedHeadline || '',
+          suggestedBullets: rewrite.suggestedBullets || slide.suggestedBullets || [],
+          reductionPercent: rewrite.reductionPercent ?? slide.reductionPercent ?? 0,
+          status: rewrite.status || 'pending',
+        };
+      })
+    );
+
+    return reviewItems;
   },
+
+  /* ── Pass-through sessionService operations ── */
+  createSession: sessionService.createSession,
+  uploadSlides: sessionService.uploadSlides,
+  getSessionSlides: sessionService.getSessionSlides,
+  analyzeSlides: sessionService.analyzeSlides,
+  batchRewrite: sessionService.batchRewrite,
+  getRewriteResults: sessionService.getRewriteResults,
+  acceptSuggestion: sessionService.acceptSuggestion,
+  rejectSuggestion: sessionService.rejectSuggestion,
+  modifySuggestion: (suggestionId: number, payload: ModifySuggestionRequest) =>
+    sessionService.modifySuggestion(suggestionId, payload),
 };

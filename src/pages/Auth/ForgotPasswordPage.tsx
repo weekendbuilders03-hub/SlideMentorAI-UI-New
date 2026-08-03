@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { authService } from '../../api/services/authService';
 import ThemeToggle from '../../components/common/ThemeToggle/ThemeToggle';
 import Button from '../../components/common/Button/Button';
 import s from './Auth.module.scss';
@@ -8,7 +7,7 @@ import s from './Auth.module.scss';
 const ForgotPasswordPage: React.FC = () => {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
-  const [sent, setSent] = useState(false);
+  const [sent] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -16,10 +15,10 @@ const ForgotPasswordPage: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      await authService.forgotPassword(email);
-      setSent(true);
+      throw new Error('Forgot password is not supported by backend');
+      // setSent(true);
     } catch {
-      setError('Something went wrong. Please try again.');
+      setError('Password reset is not supported. Please log in with Google.');
     } finally {
       setLoading(false);
     }

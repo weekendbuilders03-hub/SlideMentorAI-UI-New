@@ -1,25 +1,33 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAppSelector } from '../../store/hooks';
+import { practiceService } from '../../api/services/practiceService';
 import Button from '../../components/common/Button/Button';
+import type { PracticeSummary } from '../../types/practice';
 import styles from './Summary.module.scss';
-
-const STRENGTHS = [
-  'Consistent pacing across all slides',
-  'Clear articulation on technical terms',
-  'Strong opening hook delivery',
-  'Effective use of pauses after key points',
-];
-
-const IMPROVEMENTS = [
-  'Reduce filler words ("um", "uh") — 7 instances',
-  'Slow down on slides 4 and 7',
-  'Add vocal variety to key sections',
-];
 
 const SummaryPage: React.FC = () => {
   const navigate = useNavigate();
-  const score = 82;
+  const session = useAppSelector((state) => state.session.current);
+  const user = useAppSelector((state) => state.auth.user);
+  const [summary, setSummary] = useState<PracticeSummary | null>(null);
+
+  const sessionIdNum = typeof session?.id === 'number'
+    ? session.id
+    : parseInt(session?.id ?? '1', 10) || 1;
+
+  useEffect(() => {
+    practiceService.getSummary(sessionIdNum).then(setSummary);
+  }, [sessionIdNum]);
+
+  const score = summary?.overallScore ?? 82;
   const pct = `${score}%`;
+  const firstName = user?.firstName || 'there';
+
+  // Render coaching lists only when the backend provides real data.
+  // Empty arrays render nothing — there are no hardcoded coaching bullets.
+  const strengths = summary?.strengths ?? [];
+  const improvements = summary?.improvements ?? [];
 
   return (
     <>
@@ -33,10 +41,9 @@ const SummaryPage: React.FC = () => {
           </div>
         </div>
         <div>
-          <h2 className={styles.title}>Great session, Alex!</h2>
+          <h2 className={styles.title}>Great session, {firstName}!</h2>
           <p className={styles.sub}>
-            You scored <strong>{score}/100</strong> — up 6 points from your last session.
-            Your pacing and pausing were standout strengths today.
+            You scored <strong>{score}/100</strong> for this session.
           </p>
           <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
             <Button variant="spotlight" id="view-feedback-btn" onClick={() => navigate('/speech')}>
@@ -54,16 +61,16 @@ const SummaryPage: React.FC = () => {
         <div className={styles.card}>
           <h4>Strengths</h4>
           <ul className={styles.list}>
-            {STRENGTHS.map((s) => (
-              <li key={s} className={styles.good}>{s}</li>
+            {strengths.map((s, i) => (
+              <li key={i} className={styles.good}>{s}</li>
             ))}
           </ul>
         </div>
         <div className={styles.card}>
           <h4>Areas to improve</h4>
           <ul className={styles.list}>
-            {IMPROVEMENTS.map((s) => (
-              <li key={s} className={styles.improve}>{s}</li>
+            {improvements.map((s, i) => (
+              <li key={i} className={styles.improve}>{s}</li>
             ))}
           </ul>
         </div>

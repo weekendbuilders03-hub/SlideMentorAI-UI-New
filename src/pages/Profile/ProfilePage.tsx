@@ -1,13 +1,63 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Button from '../../components/common/Button/Button';
+import { useAppSelector, useAppDispatch } from '../../store/hooks';
+import { userService } from '../../api/services/userService';
+import { fetchCurrentUser } from '../../store/slices/authSlice';
 import styles from './Profile.module.scss';
 
 const ProfilePage: React.FC = () => {
-  const [firstName, setFirstName] = useState('Alex');
-  const [lastName, setLastName] = useState('Johnson');
-  const [email] = useState('alex@company.com');
-  const [role, setRole] = useState('Product Manager');
-  const [org, setOrg] = useState('Acme Corp');
+  const dispatch = useAppDispatch();
+  const authUser = useAppSelector((state) => state.auth.user);
+
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [email, setEmail] = useState('');
+  const [role, setRole] = useState('');
+  const [org, setOrg] = useState('');
+  const [avatarInitials, setAvatarInitials] = useState('U');
+
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  useEffect(() => {
+    userService.getProfile()
+      .then((p) => {
+        setFirstName(p.firstName || authUser?.firstName || '');
+        setLastName(p.lastName || authUser?.lastName || '');
+        setEmail(p.email || authUser?.email || '');
+        setRole(p.role || authUser?.role || '');
+        setOrg(p.organization || '');
+        setAvatarInitials(p.avatarInitials || authUser?.avatarInitials || 'U');
+      })
+      .catch(() => {
+        if (authUser) {
+          setFirstName(authUser.firstName || '');
+          setLastName(authUser.lastName || '');
+          setEmail(authUser.email || '');
+          setRole(authUser.role || '');
+          setAvatarInitials(authUser.avatarInitials || 'U');
+        }
+      });
+  }, [authUser]);
+
+  const handleSave = async () => {
+    setSaving(true);
+    setMessage(null);
+    try {
+      await userService.updateProfile({
+        firstName,
+        lastName,
+        role,
+      });
+      // Refresh current user in Redux
+      dispatch(fetchCurrentUser());
+      setMessage({ type: 'success', text: 'Profile updated successfully!' });
+    } catch (err: any) {
+      setMessage({ type: 'error', text: err.message || 'Failed to update profile' });
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <>
@@ -18,12 +68,23 @@ const ProfilePage: React.FC = () => {
             <div className={styles.cardH}>Personal information</div>
 
             <div className={styles.avatarRow}>
-              <div className={styles.avatarLg}>AJ</div>
+              <div className={styles.avatarLg}>{avatarInitials}</div>
               <div style={{ display: 'flex', gap: 8 }}>
                 <Button variant="secondary" size="sm" id="upload-avatar-btn">Change photo</Button>
                 <Button variant="ghost" size="sm" id="remove-avatar-btn">Remove</Button>
               </div>
             </div>
+
+            {message && (
+              <div style={{
+                color: message.type === 'success' ? 'var(--teal)' : 'var(--coral)',
+                marginBottom: 12,
+                fontSize: 13,
+                fontWeight: 600,
+              }}>
+                {message.text}
+              </div>
+            )}
 
             <div className={styles.fieldRow}>
               <div className="field">
@@ -57,7 +118,9 @@ const ProfilePage: React.FC = () => {
               </div>
             </div>
 
-            <Button variant="primary" id="save-profile-btn">Save changes</Button>
+            <Button variant="primary" id="save-profile-btn" onClick={handleSave} disabled={saving}>
+              {saving ? 'Saving…' : 'Save changes'}
+            </Button>
           </div>
         </div>
 
@@ -66,7 +129,7 @@ const ProfilePage: React.FC = () => {
           <div className={styles.card}>
             <div className={styles.cardH}>Connected accounts</div>
             {[
-              { icon: 'G', name: 'Google', sub: 'alex@company.com', connected: true },
+              { icon: 'G', name: 'Google', sub: email || 'Connected Google Account', connected: true },
               { icon: '⊞', name: 'Microsoft', sub: 'Connect your Microsoft account', connected: false },
               { icon: '⌂', name: 'Slack', sub: 'Get practice reminders in Slack', connected: false },
             ].map((acc) => (

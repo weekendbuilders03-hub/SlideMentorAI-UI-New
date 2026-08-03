@@ -6,7 +6,6 @@ import AppLayout from '../components/layout/AppLayout/AppLayout';
 /* Auth pages (public) */
 const LoginPage = lazy(() => import('../pages/Auth/LoginPage'));
 const SignupPage = lazy(() => import('../pages/Auth/SignupPage'));
-const ForgotPasswordPage = lazy(() => import('../pages/Auth/ForgotPasswordPage'));
 
 /* App pages (protected) */
 const DashboardPage = lazy(() => import('../pages/Dashboard/DashboardPage'));
@@ -51,7 +50,7 @@ const AppRoutes = () => (
       {/* Public routes */}
       <Route path="/login" element={<LoginPage />} />
       <Route path="/signup" element={<SignupPage />} />
-      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+
 
       {/* Protected routes — all share AppLayout via nested routes */}
       <Route element={<ProtectedRoute />}>

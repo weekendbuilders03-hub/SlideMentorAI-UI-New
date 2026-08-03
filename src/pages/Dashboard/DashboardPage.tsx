@@ -1,7 +1,10 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppSelector } from '../../store/hooks';
 import Button from '../../components/common/Button/Button';
+import { sessionService } from '../../api/services/sessionService';
+import { deckService } from '../../api/services/deckService';
+import type { SessionStatsResponse, BackendSession, Deck } from '../../types/deck';
 import s from './Dashboard.module.scss';
 
 interface StatCardProps { value: string; label: string; }
@@ -22,16 +25,33 @@ const ActionCard: React.FC<ActionCardProps> = ({ icon, title, sub, onClick, id }
   </div>
 );
 
-const DECKS = [
-  { id: 'd1', name: 'Investor Pitch Deck v2', slides: 14, duration: '18:32', status: 'done' as const },
-  { id: 'd2', name: 'Q4 Sales Strategy Final', slides: 10, duration: '12:45', status: 'progress' as const },
-  { id: 'd3', name: 'Team Sync — Project Alpha', slides: 8, duration: '12:00', status: 'done' as const },
-];
-
 const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
   const user = useAppSelector((state) => state.auth.user);
-  const firstName = user?.firstName ?? 'Alex';
+  const firstName = user?.firstName ?? 'there';
+
+  const [stats, setStats] = useState<SessionStatsResponse | null>(null);
+  const [lastSession, setLastSession] = useState<BackendSession | null>(null);
+  const [recentDecks, setRecentDecks] = useState<Deck[]>([]);
+
+  useEffect(() => {
+    sessionService.getStats()
+      .then(setStats)
+      .catch(() => setStats(null));
+
+    sessionService.getLastSession()
+      .then(setLastSession)
+      .catch(() => setLastSession(null));
+
+    deckService.listDecks()
+      .then(setRecentDecks)
+      .catch(() => setRecentDecks([]));
+  }, []);
+
+  const totalSessions = stats?.sessionsCompleted ?? stats?.totalSessions ?? 0;
+  const avgScore = stats?.averageScore ?? stats?.lastSessionScore ?? 0;
+  const fillerCount = stats?.totalFillerWords ?? stats?.averageFillerWords ?? 0;
+  const avgWpm = stats?.averageWpm ?? 0;
 
   return (
     <>
@@ -40,19 +60,21 @@ const DashboardPage: React.FC = () => {
 
       {/* Stats */}
       <div className={s.statGrid}>
-        <StatCard value="12" label="Sessions completed" />
-        <StatCard value="82" label="Avg. AI score" />
-        <StatCard value="7" label="Filler words (last)" />
-        <StatCard value="138" label="Avg. wpm" />
+        <StatCard value={String(totalSessions)} label="Sessions completed" />
+        <StatCard value={avgScore > 0 ? String(avgScore) : '—'} label="Avg. AI score" />
+        <StatCard value={String(fillerCount)} label="Filler words" />
+        <StatCard value={avgWpm > 0 ? String(avgWpm) : '—'} label="Avg. wpm" />
       </div>
 
       {/* Resume card */}
       <div className={s.resumeCard}>
         <div className={s.resumeLeft}>
           <div className={s.resumeTitle}>Continue where you left off</div>
-          <div className={s.resumeDeck}>Q4 Sales Strategy Final</div>
-          <div className={s.resumeTrack}><div className={s.resumeFill} /></div>
-          <div className={s.resumeNote}>Slide 7 of 10 · 12 min remaining</div>
+          <div className={s.resumeDeck}>{lastSession?.title || 'No recent presentation session'}</div>
+          <div className={s.resumeTrack}><div className={s.resumeFill} style={{ width: lastSession ? '50%' : '0%' }} /></div>
+          <div className={s.resumeNote}>
+            {lastSession ? `${lastSession.slidesCount ?? 0} slides · ${lastSession.presentationTimeMinutes ?? 15} min` : 'Upload a deck to get started'}
+          </div>
         </div>
         <Button variant="spotlight" id="resume-practice-btn" onClick={() => navigate('/practice')}>
           Resume practice →
@@ -99,16 +121,22 @@ const DashboardPage: React.FC = () => {
           <span>Your decks</span>
           <a href="#" id="view-all-decks-link">View all</a>
         </div>
-        {DECKS.map((deck) => (
-          <div key={deck.id} className={s.deckRow}>
-            <div className={s.deckThumb} />
-            <div className={s.deckName}>{deck.name}</div>
-            <div className={s.deckMeta}>{deck.slides} slides · {deck.duration}</div>
-            <span className={`status-pill ${deck.status}`}>
-              {deck.status === 'done' ? 'Reviewed' : 'In progress'}
-            </span>
+        {recentDecks.length === 0 ? (
+          <div style={{ padding: '20px', textAlign: 'center', color: 'var(--ink-muted)' }}>
+            No presentation decks found. Upload your first deck above!
           </div>
-        ))}
+        ) : (
+          recentDecks.slice(0, 5).map((deck) => (
+            <div key={deck.id} className={s.deckRow}>
+              <div className={s.deckThumb} />
+              <div className={s.deckName}>{deck.name}</div>
+              <div className={s.deckMeta}>{deck.slideCount} slides · {deck.duration}</div>
+              <span className={`status-pill ${deck.status}`}>
+                {deck.status === 'done' ? 'Reviewed' : 'In progress'}
+              </span>
+            </div>
+          ))
+        )}
       </div>
     </>
   );

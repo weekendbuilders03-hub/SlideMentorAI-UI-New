@@ -1,24 +1,33 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
-import { loginWithCredentials } from '../../store/slices/authSlice';
+import { loginWithGoogle } from '../../store/slices/authSlice';
+import { GoogleLogin } from '@react-oauth/google';
 import ThemeToggle from '../../components/common/ThemeToggle/ThemeToggle';
-import Button from '../../components/common/Button/Button';
+
 import s from './Auth.module.scss';
 
 const LoginPage: React.FC = () => {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
-  const { loading, error } = useAppSelector((state) => state.auth);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const { error } = useAppSelector((state) => state.auth);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const result = await dispatch(loginWithCredentials({ email, password }));
-    if (loginWithCredentials.fulfilled.match(result)) {
+
+  const handleGoogleSuccess = async (credentialResponse: any) => {
+    const tokenId = credentialResponse?.credential;
+    if (!tokenId) {
+      console.error('[Google OAuth] No credential returned from Google.');
+      return;
+    }
+    const result = await dispatch(loginWithGoogle({ idToken: tokenId }));
+    if (loginWithGoogle.fulfilled.match(result)) {
       navigate('/dashboard');
     }
+  };
+
+  const handleGoogleError = () => {
+    console.error('[Google OAuth] Login failed — check Google Cloud Console Authorized Origins.');
+    dispatch({ type: 'auth/setError', payload: 'Google sign-in failed. Please ensure pop-ups are allowed and try again.' });
   };
 
   return (
@@ -58,16 +67,18 @@ const LoginPage: React.FC = () => {
           <p className={s.authSub}>Log in to continue your practice sessions.</p>
 
           {/* Social */}
-          <div className={s.socialRow}>
-            <button id="login-google-btn" className={s.socialBtn}>
-              <span className={s.socialIcon}>G</span>
-              Continue with Google
-            </button>
-            <button id="login-microsoft-btn" className={s.socialBtn}>
-              <span className={s.socialIcon}>⊞</span>
-              Continue with Microsoft
-            </button>
-          </div>
+            <div className={s.socialRow}>
+              <GoogleLogin
+                onSuccess={handleGoogleSuccess}
+                onError={handleGoogleError}
+              />
+              <button id="login-microsoft-btn" className={s.socialBtn}
+                // Microsoft login not implemented yet
+              >
+                <span className={s.socialIcon}>⊞</span>
+                Continue with Microsoft
+              </button>
+            </div>
 
           <div className="divider">or</div>
 
@@ -75,46 +86,7 @@ const LoginPage: React.FC = () => {
           {error && <div className={s.errorMsg}>{error}</div>}
 
           {/* Form */}
-          <form onSubmit={handleSubmit} id="login-form" noValidate>
-            <div className="field">
-              <label htmlFor="login-email">Email address</label>
-              <input
-                id="login-email"
-                type="email"
-                placeholder="you@company.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                autoComplete="email"
-              />
-            </div>
-
-            <div className="field">
-              <label htmlFor="login-password">Password</label>
-              <input
-                id="login-password"
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                autoComplete="current-password"
-              />
-            </div>
-
-            <div className={s.forgotRow}>
-              <Link to="/forgot-password">Forgot password?</Link>
-            </div>
-
-            <Button
-              type="submit"
-              size="lg"
-              disabled={loading}
-              id="login-submit-btn"
-            >
-              {loading ? 'Signing in…' : 'Log in'}
-            </Button>
-          </form>
+            {/* Email/password login is not supported; use Google login above. */}
 
           <p className={s.authFoot}>
             Don't have an account?{' '}

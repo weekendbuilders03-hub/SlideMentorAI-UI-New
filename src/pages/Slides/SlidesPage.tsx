@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { advancePhase, setAudience, setTimeMinutes, setSession } from '../../store/slices/sessionSlice';
 import { deckService } from '../../api/services/deckService';
+import { usageService } from '../../api/services/usageService';
 import Button from '../../components/common/Button/Button';
 import { cn } from '../../utils/cn';
 import type { SlideReviewItem } from '../../types/deck';
@@ -32,7 +33,7 @@ const SlidesPage: React.FC = () => {
   const [audience, setAudienceLocal] = useState('Executives');
   const [timeMinutes, setTimeLocal] = useState(15);
   const [reviewItems, setReviewItems] = useState<SlideReviewItem[]>([]);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<number | string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -48,9 +49,13 @@ const SlidesPage: React.FC = () => {
   const handleFile = async (file: File) => {
     if (!file) return;
     setFileName(file.name);
-    const sess = await deckService.uploadDeck(file);
-    dispatch(setSession(sess));
-    // Simulate processing then go to phase 2
+    try {
+      usageService.consumeUsage().catch(() => {});
+      const sess = await deckService.uploadDeck(file);
+      dispatch(setSession(sess));
+    } catch (err) {
+      console.error('Upload session failed, using fallback local session:', err);
+    }
     goToPhase(2);
   };
 
@@ -61,23 +66,59 @@ const SlidesPage: React.FC = () => {
     if (file) handleFile(file);
   };
 
-  /* ── Simulate processing (phase 3) ── */
+  /* ── Real API processing (phase 3) ── */
   const startProcessing = () => {
     goToPhase(3);
     dispatch(setAudience(audience));
     dispatch(setTimeMinutes(timeMinutes));
+
+    const sessionIdNum = typeof session?.id === 'number'
+      ? session.id
+      : parseInt(session?.id ?? '1', 10) || 1;
+
     let p = 0;
     const interval = setInterval(() => {
-      p += 7;
+      p += 10;
       setProgress(Math.min(p, 100));
       if (p >= 100) {
         clearInterval(interval);
-        deckService.getReviewItems('d_new').then((items) => {
+
+        // Trigger batch AI rewrite on the backend
+        deckService.batchRewrite(sessionIdNum).catch(() => {});
+
+        // Fetch slide review items
+        deckService.getReviewItems(sessionIdNum).then((items) => {
           setReviewItems(items);
           goToPhase(4);
         });
       }
     }, 300);
+  };
+
+  const handleAcceptSuggestion = async (item: SlideReviewItem) => {
+    if (item.suggestionId) {
+      try {
+        await deckService.acceptSuggestion(item.suggestionId);
+      } catch (err) {
+        console.warn('Accept suggestion failed:', err);
+      }
+    }
+    setReviewItems((prev) =>
+      prev.map((i) => (i.id === item.id ? { ...i, status: 'accepted' } : i))
+    );
+  };
+
+  const handleRejectSuggestion = async (item: SlideReviewItem) => {
+    if (item.suggestionId) {
+      try {
+        await deckService.rejectSuggestion(item.suggestionId);
+      } catch (err) {
+        console.warn('Reject suggestion failed:', err);
+      }
+    }
+    setReviewItems((prev) =>
+      prev.map((i) => (i.id === item.id ? { ...i, status: 'skipped' } : i))
+    );
   };
 
   const goToPhase = (n: 1 | 2 | 3 | 4) => {
@@ -218,7 +259,7 @@ const SlidesPage: React.FC = () => {
             <div className={s.batchStats}>
               <div><span>{Math.round(progress / 10)}</span>Slides done</div>
               <div><span>{Math.round(progress * 1.5)}</span>Words checked</div>
-              <div><span>{progress < 100 ? '—' : '2'}</span>Issues flagged</div>
+              <div><span>{progress < 100 ? '—' : reviewItems.length || '2'}</span>Issues flagged</div>
             </div>
             <div className={s.progressTrack}>
               <div className="track"><div className="fill" style={{ width: `${progress}%` }} /></div>
@@ -239,8 +280,8 @@ const SlidesPage: React.FC = () => {
               ))}
             </div>
             <div className={s.bulkActions}>
-              <Button variant="secondary" size="sm" id="accept-all-btn">Accept all</Button>
-              <Button variant="secondary" size="sm" id="skip-all-btn">Skip all</Button>
+              <Button variant="secondary" size="sm" id="accept-all-btn" onClick={() => reviewItems.forEach(handleAcceptSuggestion)}>Accept all</Button>
+              <Button variant="secondary" size="sm" id="skip-all-btn" onClick={() => reviewItems.forEach(handleRejectSuggestion)}>Skip all</Button>
             </div>
           </div>
 
@@ -265,9 +306,9 @@ const SlidesPage: React.FC = () => {
                     </div>
                     <div className={s.rowActions}>
                       <Button variant="secondary" size="sm" id={`accept-${item.id}`}
-                        onClick={(e) => { e.stopPropagation(); }}>✓ Accept</Button>
+                        onClick={(e) => { e.stopPropagation(); handleAcceptSuggestion(item); }}>✓ Accept</Button>
                       <Button variant="ghost" size="sm" id={`skip-${item.id}`}
-                        onClick={(e) => { e.stopPropagation(); }}>Skip</Button>
+                        onClick={(e) => { e.stopPropagation(); handleRejectSuggestion(item); }}>Skip</Button>
                     </div>
                     <span className={cn(s.chevron, isOpen ? s.chevronOpen : undefined)}>▼</span>
                   </div>
@@ -297,8 +338,8 @@ const SlidesPage: React.FC = () => {
                       <div className={s.panelActions}>
                         <Button variant="ghost" size="sm">Modify suggestion</Button>
                         <div className={s.panelActionsRight}>
-                          <Button variant="secondary" size="sm">Skip</Button>
-                          <Button variant="spotlight" size="sm">Accept suggestion</Button>
+                          <Button variant="secondary" size="sm" onClick={() => handleRejectSuggestion(item)}>Skip</Button>
+                          <Button variant="spotlight" size="sm" onClick={() => handleAcceptSuggestion(item)}>Accept suggestion</Button>
                         </div>
                       </div>
                     </div>
@@ -308,17 +349,17 @@ const SlidesPage: React.FC = () => {
             })}
           </div>
 
-          {/* Export CTA */}
+          {/* Practice CTA */}
           <div className={s.footerCta}>
             <div>
-              <div className={s.footerCtaTitle}>Ready to export?</div>
-              <div className={s.footerCtaSub}>Accept or skip remaining suggestions, then export your updated deck.</div>
+              <div className={s.footerCtaTitle}>Ready to practice?</div>
+              <div className={s.footerCtaSub}>Slide coaching review is complete. Start practicing your delivery with real-time feedback.</div>
             </div>
             <div style={{ display: 'flex', gap: 10 }}>
               <Button variant="secondary" style={{ color: '#edebf5', borderColor: 'rgba(237,235,245,0.3)' }}
                 id="review-skip-remaining-btn">Skip remaining</Button>
-              <Button variant="spotlight" id="go-export-btn"
-                onClick={() => navigate('/sheet')}>Export deck →</Button>
+              <Button variant="spotlight" id="go-practice-btn"
+                onClick={() => navigate('/practice')}>Start practice →</Button>
             </div>
           </div>
         </>

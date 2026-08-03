@@ -1,65 +1,240 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAppSelector } from '../../store/hooks';
+import { practiceService } from '../../api/services/practiceService';
+import { sessionService } from '../../api/services/sessionService';
 import { cn } from '../../utils/cn';
 import Button from '../../components/common/Button/Button';
+import type { BackendSlide } from '../../types/deck';
 import styles from './Practice.module.scss';
 
-const SLIDES = [
-  { id: 1, title: 'Introduction', subtitle: 'Setting the context' },
-  { id: 2, title: 'Market Opportunity', subtitle: '$9.8B by 2027' },
-  { id: 3, title: 'Product Features', subtitle: 'AI coaching platform' },
-  { id: 4, title: 'Traction', subtitle: '3,200 active users' },
-  { id: 5, title: 'Team', subtitle: 'World-class experts' },
-  { id: 6, title: 'Financials', subtitle: 'Path to profitability' },
-  { id: 7, title: 'Ask', subtitle: '$5M seed round' },
+/** Shape used internally by the practice UI. */
+interface PracticeSlide {
+  id: number;       // slide number (1-based) — used for timeline milestone
+  title: string;
+  subtitle: string; // mapped from originalHeadline or content
+}
+
+/**
+ * Minimal single-slide fallback used ONLY when:
+ *   - No session is active, OR
+ *   - The backend returns an empty slide array, OR
+ *   - getSessionSlides() throws.
+ * Contains no business content.
+ */
+const FALLBACK_SLIDES: PracticeSlide[] = [
+  { id: 1, title: 'Slide 1', subtitle: '' },
 ];
 
 const PracticePage: React.FC = () => {
   const navigate = useNavigate();
+  const session = useAppSelector((state) => state.session.current);
+
+  const [slides, setSlides] = useState<PracticeSlide[]>([]);
+  const [slidesLoading, setSlidesLoading] = useState(true);
   const [activeSlide, setActiveSlide] = useState(0);
   const [isRecording, setIsRecording] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [elapsed, setElapsed] = useState(0);
   const [wpm, setWpm] = useState(0);
   const [fillers, setFillers] = useState(0);
   const [pauses, setPauses] = useState(0);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const toggleRecording = () => {
-    if (isRecording) {
-      if (timerRef.current) clearInterval(timerRef.current);
-      navigate('/summary');
-    } else {
-      setElapsed(0);
-      timerRef.current = setInterval(() => {
-        setElapsed((t) => {
-          const next = t + 1;
-          // Simulate live metrics
-          setWpm(Math.round(130 + Math.sin(next / 5) * 20));
-          setFillers((f) => (next % 15 === 0 ? f + 1 : f));
-          setPauses((p) => (next % 30 === 0 ? p + 1 : p));
-          return next;
-        });
-      }, 1000);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+
+  const sessionIdNum = typeof session?.id === 'number'
+    ? session.id
+    : parseInt(session?.id ?? '0', 10) || 0;
+
+  /* ── Load real slides from the active session ── */
+  useEffect(() => {
+    if (!session?.id || sessionIdNum === 0) {
+      setSlides(FALLBACK_SLIDES);
+      setSlidesLoading(false);
+      return;
     }
-    setIsRecording((r) => !r);
+
+    sessionService.getSessionSlides(sessionIdNum)
+      .then((backendSlides: BackendSlide[]) => {
+        if (backendSlides && backendSlides.length > 0) {
+          const mapped: PracticeSlide[] = backendSlides.map((s) => ({
+            id: s.slideNumber,
+            title: s.title || `Slide ${s.slideNumber}`,
+            subtitle: s.originalHeadline || s.content || '',
+          }));
+          setSlides(mapped);
+        } else {
+          // Backend returned empty — use neutral fallback
+          setSlides(FALLBACK_SLIDES);
+        }
+      })
+      .catch(() => {
+        // Network/API error — use neutral fallback
+        setSlides(FALLBACK_SLIDES);
+      })
+      .finally(() => {
+        setSlidesLoading(false);
+      });
+  }, [sessionIdNum, session?.id]);
+
+  /* ── Helper to change active slide & save timeline milestone ── */
+  const changeSlide = (newIndex: number) => {
+    setActiveSlide(newIndex);
+    if (isRecording && slides.length > 0) {
+      const targetSlide = slides[newIndex];
+      practiceService.saveTimeline(sessionIdNum, {
+        slideNumber: targetSlide.id,
+        label: targetSlide.title,
+        timestampSeconds: elapsed,
+        wpm: wpm || 130,
+      }).catch((err) => console.warn('Timeline save milestone failed:', err));
+    }
   };
 
-  useEffect(() => () => { if (timerRef.current) clearInterval(timerRef.current); }, []);
+  /* ── Stop MediaRecorder and return single complete Audio Blob ── */
+  const stopMediaRecorderAsync = (): Promise<Blob | null> => {
+    return new Promise((resolve) => {
+      const recorder = mediaRecorderRef.current;
+      if (!recorder || recorder.state === 'inactive') {
+        resolve(null);
+        return;
+      }
+
+      recorder.onstop = () => {
+        if (audioChunksRef.current.length > 0) {
+          const fullBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+          resolve(fullBlob);
+        } else {
+          resolve(null);
+        }
+      };
+
+      recorder.stop();
+    });
+  };
+
+  const toggleRecording = async () => {
+    setError(null);
+
+    if (isRecording) {
+      // ── 1. Stop local timer ──
+      setLoading(true);
+      if (timerRef.current) clearInterval(timerRef.current);
+
+      try {
+        // ── 2. Await MediaRecorder to stop and assemble final Audio Blob ──
+        const recordedAudioBlob = await stopMediaRecorderAsync();
+
+        // ── 3. Upload final complete audio file ──
+        if (recordedAudioBlob) {
+          await practiceService.uploadAudio(sessionIdNum, recordedAudioBlob);
+        }
+
+        // ── 4. Signal recording stop on backend ──
+        await practiceService.stopAudio(sessionIdNum);
+
+        // ── 5. Trigger transcription processing ──
+        await practiceService.processTranscription(sessionIdNum).catch(() => {});
+
+        // ── 6. Verification check via getTranscription ──
+        await practiceService.getTranscription(sessionIdNum).catch(() => {});
+      } catch (err: any) {
+        console.warn('Audio processing flow error:', err);
+      } finally {
+        setLoading(false);
+        setIsRecording(false);
+        navigate('/summary');
+      }
+    } else {
+      // ── Start Recording ──
+      setLoading(true);
+      try {
+        await practiceService.startAudio(sessionIdNum);
+
+        audioChunksRef.current = [];
+
+        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+          try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            const mediaRecorder = new MediaRecorder(stream);
+            mediaRecorderRef.current = mediaRecorder;
+
+            mediaRecorder.ondataavailable = (e) => {
+              if (e.data && e.data.size > 0) {
+                audioChunksRef.current.push(e.data);
+              }
+            };
+
+            mediaRecorder.start(); // Record continuously until stopped
+          } catch (micErr) {
+            console.warn('Mic access unavailable, live metrics will be simulated:', micErr);
+          }
+        }
+
+        setElapsed(0);
+        setIsRecording(true);
+
+        // Save initial timeline milestone for the first real slide
+        if (slides.length > 0) {
+          practiceService.saveTimeline(sessionIdNum, {
+            slideNumber: slides[0].id,
+            label: slides[0].title,
+            timestampSeconds: 0,
+            wpm: 130,
+          }).catch(() => {});
+        }
+
+        timerRef.current = setInterval(() => {
+          setElapsed((t) => {
+            const next = t + 1;
+            setWpm(Math.round(130 + Math.sin(next / 5) * 20));
+            setFillers((f) => (next % 15 === 0 ? f + 1 : f));
+            setPauses((p) => (next % 30 === 0 ? p + 1 : p));
+            return next;
+          });
+        }, 1000);
+      } catch (err: any) {
+        setError(err.message || 'Failed to start recording');
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        mediaRecorderRef.current.stop();
+      }
+    };
+  }, []);
 
   const formatTime = (s: number) =>
     `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
 
-  const slide = SLIDES[activeSlide];
+  const slide = slides[activeSlide] ?? slides[0];
+
+  if (slidesLoading) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh', color: 'var(--ink-muted)', fontFamily: 'var(--mono)' }}>
+        Loading slides…
+      </div>
+    );
+  }
 
   return (
     <div className={styles.shell}>
       {/* Deck strip */}
       <div className={styles.strip}>
-        {SLIDES.map((sl, i) => (
+        {slides.map((sl, i) => (
           <div
             key={sl.id}
             className={cn(styles.stripThumb, i === activeSlide ? styles.active : undefined)}
-            onClick={() => setActiveSlide(i)}
+            onClick={() => changeSlide(i)}
             role="button"
             tabIndex={0}
             id={`slide-thumb-${sl.id}`}
@@ -73,9 +248,11 @@ const PracticePage: React.FC = () => {
       {/* Stage */}
       <div className={styles.stage}>
         <div className={styles.stagePreview}>
-          <h2>{slide.title}</h2>
-          <p>{slide.subtitle}</p>
+          <h2>{slide?.title ?? ''}</h2>
+          <p>{slide?.subtitle ?? ''}</p>
         </div>
+
+        {error && <div style={{ color: 'var(--coral)', marginBottom: 8, fontSize: 13 }}>{error}</div>}
 
         <div className={styles.stageControls}>
           {/* Timer */}
@@ -85,10 +262,11 @@ const PracticePage: React.FC = () => {
           <button
             className={cn(styles.recBtn, isRecording ? styles.recording : undefined)}
             onClick={toggleRecording}
+            disabled={loading}
             aria-label={isRecording ? 'Stop recording' : 'Start recording'}
             id="rec-btn"
           >
-            {isRecording ? '⏹' : '🎙'}
+            {loading ? '…' : isRecording ? '⏹' : '🎙'}
           </button>
 
           {/* Live metrics */}
@@ -111,10 +289,10 @@ const PracticePage: React.FC = () => {
           <div style={{ display: 'flex', gap: 8 }}>
             <Button variant="secondary" size="sm" id="prev-slide-btn"
               disabled={activeSlide === 0}
-              onClick={() => setActiveSlide((i) => Math.max(0, i - 1))}>←</Button>
+              onClick={() => changeSlide(Math.max(0, activeSlide - 1))}>←</Button>
             <Button variant="secondary" size="sm" id="next-slide-btn"
-              disabled={activeSlide === SLIDES.length - 1}
-              onClick={() => setActiveSlide((i) => Math.min(SLIDES.length - 1, i + 1))}>→</Button>
+              disabled={activeSlide === slides.length - 1}
+              onClick={() => changeSlide(Math.min(slides.length - 1, activeSlide + 1))}>→</Button>
           </div>
         </div>
       </div>

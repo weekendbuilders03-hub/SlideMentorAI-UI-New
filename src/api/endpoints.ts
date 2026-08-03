@@ -1,33 +1,117 @@
-/** All API endpoint paths as typed constants. */
+/**
+ * All API endpoint paths as typed constants.
+ * Matched to the backend Swagger spec and API handover document.
+ *
+ * ID types:
+ *  - sessionId, slideId, suggestionId → number (backend int32)
+ *  - drillId → string (backend string)
+ */
 export const ENDPOINTS = {
+  /* ── Authentication ── */
   auth: {
-    login: '/api/v1/auth/login',
-    signup: '/api/v1/auth/signup',
-    googleLogin: '/api/v1/auth/google',
-    forgotPassword: '/api/v1/auth/forgot-password',
-    me: '/api/v1/user/me',
+    google: '/api/v1/auth/google',
   },
-  decks: {
-    list: '/api/v1/decks',
-    upload: '/api/v1/decks/upload',
-    byId: (id: string) => `/api/v1/decks/${id}`,
-    review: (id: string) => `/api/v1/decks/${id}/review`,
-    export: (id: string) => `/api/v1/decks/${id}/export`,
-  },
-  practice: {
-    sessions: '/api/v1/practice/sessions',
-    byId: (id: string) => `/api/v1/practice/sessions/${id}`,
-    summary: (id: string) => `/api/v1/practice/sessions/${id}/summary`,
-    speech: (id: string) => `/api/v1/practice/sessions/${id}/speech`,
-  },
+
+  /* ── User / Profile ── */
   user: {
-    profile: '/api/v1/user/profile',
-    billing: '/api/v1/user/billing',
-    invoices: '/api/v1/user/invoices',
-    preferences: '/api/v1/user/preferences',
+    me: '/api/v1/user/me',
+    google: '/api/v1/user/google',
+    signoutAll: '/api/v1/user/signout-all',
   },
+
+  /* ── Sessions ── */
+  sessions: {
+    create: '/api/v1/sessions',
+    list: '/api/v1/sessions',
+    byId: (id: number) => `/api/v1/sessions/${id}` as const,
+    reset: (id: number) => `/api/v1/sessions/${id}/reset` as const,
+    last: '/api/v1/sessions/last',
+    stats: '/api/v1/sessions/stats',
+    progress: '/api/v1/sessions/progress',
+  },
+
+  /* ── Slides ── */
+  slides: {
+    upload: '/api/v1/slides/upload',
+    bySession: (sessionId: number) => `/sessions/${sessionId}/slides` as const,
+    byId: (slideId: number) => `/api/v1/slides/${slideId}` as const,
+    analyze: '/api/v1/slides/analyze',
+  },
+
+  /* ── Slide AI Rewrite & Suggestions ── */
+  slideRewrite: {
+    trigger: (slideId: number) => `/api/v1/slides/${slideId}/rewrite` as const,
+    get: (slideId: number) => `/api/v1/slides/${slideId}/rewrite` as const,
+    batch: '/api/v1/slides/rewrite/batch',
+    accept: (suggestionId: number) =>
+      `/api/v1/slides/suggestions/${suggestionId}/accept` as const,
+    reject: (suggestionId: number) =>
+      `/api/v1/slides/suggestions/${suggestionId}/reject` as const,
+    modify: (suggestionId: number) =>
+      `/api/v1/slides/suggestions/${suggestionId}/modify` as const,
+  },
+
+  /* ── Audio Recording ── */
+  audio: {
+    start: (sessionId: number) => `/api/v1/sessions/${sessionId}/audio/start` as const,
+    upload: (sessionId: number) => `/api/v1/sessions/${sessionId}/audio/upload` as const,
+    stop: (sessionId: number) => `/api/v1/sessions/${sessionId}/audio/stop` as const,
+    get: (sessionId: number) => `/api/v1/sessions/${sessionId}/audio` as const,
+  },
+
+  /* ── Transcription ── */
+  transcription: {
+    process: (sessionId: number) =>
+      `/api/v1/sessions/${sessionId}/transcription/process` as const,
+    get: (sessionId: number) => `/api/v1/sessions/${sessionId}/transcription` as const,
+  },
+
+  /* ── Review & Filler Words ── */
+  review: {
+    get: (sessionId: number) => `/api/v1/sessions/${sessionId}/review` as const,
+    fillerWords: (sessionId: number) =>
+      `/api/v1/sessions/${sessionId}/filler-words` as const,
+  },
+
+  /* ── Analysis & Coaching ── */
+  analysis: {
+    full: (sessionId: number) => `/api/v1/sessions/${sessionId}/analysis` as const,
+    coachingInsights: (sessionId: number) =>
+      `/api/v1/sessions/${sessionId}/coaching-insights` as const,
+    engagementScore: (sessionId: number) =>
+      `/api/v1/sessions/${sessionId}/engagement-score` as const,
+    pacing: (sessionId: number) =>
+      `/api/v1/sessions/${sessionId}/pacing-analysis` as const,
+  },
+
+  /* ── Speech Indicators ── */
+  speechIndicators: {
+    get: (sessionId: number) =>
+      `/api/v1/sessions/${sessionId}/speech-indicators` as const,
+  },
+
+  /* ── Timeline ── */
+  timeline: {
+    save: (sessionId: number) => `/api/v1/sessions/${sessionId}/timeline` as const,
+    get: (sessionId: number) => `/api/v1/sessions/${sessionId}/timeline` as const,
+  },
+
+  /* ── Export ── */
+  export: {
+    pptx: (sessionId: number) => `/api/v1/sessions/${sessionId}/export/pptx` as const,
+    pdf: (sessionId: number) => `/api/v1/sessions/${sessionId}/export/pdf` as const,
+  },
+
+  /* ── Usage Limits ── */
+  usage: {
+    check: '/api/v1/usage/check',
+    consume: '/api/v1/usage/consume',
+  },
+
+  /* ── Voice Drills ── */
   drills: {
-    plan: '/api/v1/drills/plan',
-    categories: '/api/v1/drills/categories',
+    list: '/api/v1/drills',
+    byId: (drillId: string) => `/api/v1/drills/${drillId}` as const,
+    submit: (drillId: string) => `/api/v1/drills/${drillId}` as const,
   },
 } as const;

@@ -1,6 +1,7 @@
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
 import { authService } from '../../api/services/authService';
-import type { AuthState, LoginCredentials, SignupCredentials } from '../../types/auth';
+import { extractApiError } from '../../api/axios';
+import type { AuthState, GoogleAuthCredentials } from '../../types/auth';
 
 const initialState: AuthState = {
   isAuthenticated: false,
@@ -10,30 +11,35 @@ const initialState: AuthState = {
   user: null,
 };
 
-export const loginWithCredentials = createAsyncThunk(
-  'auth/loginWithCredentials',
-  async (credentials: LoginCredentials, { rejectWithValue }) => {
+/**
+ * Authenticate with Google OAuth.
+ * Handles both new sign-ups and returning logins.
+ */
+export const loginWithGoogle = createAsyncThunk(
+  'auth/loginWithGoogle',
+  async (credentials: GoogleAuthCredentials, { rejectWithValue }) => {
     try {
-      const response = await authService.login(credentials);
+      const response = await authService.googleAuth(credentials);
       sessionStorage.setItem('token', response.token);
       return response;
     } catch (error: unknown) {
-      if (error instanceof Error) return rejectWithValue(error.message);
-      return rejectWithValue('Login failed');
+      return rejectWithValue(extractApiError(error));
     }
   },
 );
 
-export const signupWithCredentials = createAsyncThunk(
-  'auth/signupWithCredentials',
-  async (credentials: SignupCredentials, { rejectWithValue }) => {
+/**
+ * Fetch the current authenticated user's profile.
+ * Called after initializeAuth restores a token from sessionStorage,
+ * so the user object is populated even after a page refresh.
+ */
+export const fetchCurrentUser = createAsyncThunk(
+  'auth/fetchCurrentUser',
+  async (_, { rejectWithValue }) => {
     try {
-      const response = await authService.signup(credentials);
-      sessionStorage.setItem('token', response.token);
-      return response;
+      return await authService.getMe();
     } catch (error: unknown) {
-      if (error instanceof Error) return rejectWithValue(error.message);
-      return rejectWithValue('Signup failed');
+      return rejectWithValue(extractApiError(error));
     }
   },
 );
@@ -60,41 +66,42 @@ const authSlice = createSlice({
     clearError: (state) => {
       state.error = null;
     },
+    setError: (state, action: { payload: string }) => {
+      state.error = action.payload;
+    },
   },
   extraReducers: (builder) => {
     builder
-      .addCase(loginWithCredentials.pending, (state) => {
+      /* ── loginWithGoogle ── */
+      .addCase(loginWithGoogle.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
-      .addCase(loginWithCredentials.fulfilled, (state, action) => {
+      .addCase(loginWithGoogle.fulfilled, (state, action) => {
         state.loading = false;
         state.isAuthenticated = true;
         state.token = action.payload.token;
         state.user = action.payload.user;
         state.error = null;
       })
-      .addCase(loginWithCredentials.rejected, (state, action) => {
+      .addCase(loginWithGoogle.rejected, (state, action) => {
         state.loading = false;
-        state.error = (action.payload as string) ?? 'Login failed';
+        state.error = (action.payload as string) ?? 'Google login failed';
       })
-      .addCase(signupWithCredentials.pending, (state) => {
+      /* ── fetchCurrentUser ── */
+      .addCase(fetchCurrentUser.pending, (state) => {
         state.loading = true;
-        state.error = null;
       })
-      .addCase(signupWithCredentials.fulfilled, (state, action) => {
+      .addCase(fetchCurrentUser.fulfilled, (state, action) => {
         state.loading = false;
-        state.isAuthenticated = true;
-        state.token = action.payload.token;
-        state.user = action.payload.user;
-        state.error = null;
+        state.user = action.payload;
       })
-      .addCase(signupWithCredentials.rejected, (state, action) => {
+      .addCase(fetchCurrentUser.rejected, (state, action) => {
         state.loading = false;
-        state.error = (action.payload as string) ?? 'Signup failed';
+        state.error = (action.payload as string) ?? 'Failed to load user';
       });
   },
 });
 
-export const { logout, initializeAuth, clearError } = authSlice.actions;
+export const { logout, initializeAuth, clearError, setError } = authSlice.actions;
 export default authSlice.reducer;

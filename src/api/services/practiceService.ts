@@ -114,7 +114,7 @@ export const practiceService = {
   uploadAudio: async (sessionId: number, audioBlob: Blob | File): Promise<AudioUploadResponse> => {
     const formData = new FormData();
     formData.append('SessionId', sessionId.toString());
-    formData.append('AudioFile', audioBlob, 'recording.webm');
+    formData.append('File', audioBlob, 'recording.webm');
 
     const { data } = await apiClient.post<ApiResponse<AudioUploadResponse>>(
       ENDPOINTS.audio.upload(sessionId),
@@ -207,23 +207,7 @@ export const practiceService = {
     const { data } = await apiClient.get<ApiResponse<BackendFullAnalysis>>(
       ENDPOINTS.analysis.full(sessionId)
     );
-    return unwrapResponse(data) ?? {
-      sessionId,
-      overallScore: 82,
-      averageWpm: 138,
-      fillerWordCount: 7,
-      strengths: [
-        'Consistent pacing across all slides',
-        'Clear articulation on technical terms',
-        'Strong opening hook delivery',
-        'Effective use of pauses after key points',
-      ],
-      improvements: [
-        'Reduce filler words ("um", "uh") — 7 instances detected',
-        'Slow down on slides 4 and 7 — slightly rushed',
-        'Add vocal variety to keep audience engaged',
-      ],
-    };
+    return unwrapResponse(data) ?? { sessionId };
   },
 
   /**
@@ -311,38 +295,20 @@ export const practiceService = {
       return {
         id: fullAnalysis.sessionId || numericId,
         sessionId: fullAnalysis.sessionId || numericId,
-        overallScore: fullAnalysis.overallScore ?? 82,
-        duration: fullAnalysis.duration || '14:22',
-        wpmAverage: fullAnalysis.averageWpm ?? 138,
-        fillerWordCount: fullAnalysis.fillerWordCount ?? 7,
-        strengths: fullAnalysis.strengths ?? [
-          'Consistent pacing across all slides',
-          'Clear articulation on technical terms',
-        ],
-        improvements: fullAnalysis.improvements ?? [
-          'Reduce filler words ("um", "uh")',
-          'Slow down on dense slides',
-        ],
+        overallScore: fullAnalysis.overallScore,
+        duration: fullAnalysis.duration,
+        wpmAverage: fullAnalysis.averageWpm,
+        fillerWordCount: fullAnalysis.fillerWordCount,
+        strengths: fullAnalysis.strengths ?? [],
+        improvements: fullAnalysis.improvements ?? [],
+        analysis: fullAnalysis,
       };
     } catch {
       return {
         id: numericId,
         sessionId: numericId,
-        overallScore: 82,
-        duration: '14:22',
-        wpmAverage: 138,
-        fillerWordCount: 7,
-        strengths: [
-          'Consistent pacing across all slides',
-          'Clear articulation on technical terms',
-          'Strong opening hook delivery',
-          'Effective use of pauses after key points',
-        ],
-        improvements: [
-          'Reduce filler words ("um", "uh") — 7 instances detected',
-          'Slow down on slides 4 and 7 — slightly rushed',
-          'Add vocal variety to keep audience engaged',
-        ],
+        strengths: [],
+        improvements: [],
       };
     }
   },

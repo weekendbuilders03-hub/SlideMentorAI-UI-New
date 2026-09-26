@@ -43,6 +43,7 @@ export const ENDPOINTS = {
     trigger: (slideId: number) => `/api/v1/slides/${slideId}/rewrite` as const,
     get: (slideId: number) => `/api/v1/slides/${slideId}/rewrite` as const,
     batch: '/api/v1/slides/rewrite/batch',
+    acceptBatch: '/api/v1/slides/suggestions/accept-batch',
     accept: (suggestionId: number) =>
       `/api/v1/slides/suggestions/${suggestionId}/accept` as const,
     reject: (suggestionId: number) =>

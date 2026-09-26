@@ -10,7 +10,8 @@ import styles from './Practice.module.scss';
 
 /** Shape used internally by the practice UI. */
 interface PracticeSlide {
-  id: number;       // slide number (1-based) — used for timeline milestone
+  id: number;       // backend slide ID — used for timeline milestone
+  slideNumber: number;
   title: string;
   subtitle: string; // mapped from originalHeadline or content
 }
@@ -23,7 +24,7 @@ interface PracticeSlide {
  * Contains no business content.
  */
 const FALLBACK_SLIDES: PracticeSlide[] = [
-  { id: 1, title: 'Slide 1', subtitle: '' },
+  { id: 1, slideNumber: 1, title: 'Slide 1', subtitle: '' },
 ];
 
 const PracticePage: React.FC = () => {
@@ -61,7 +62,8 @@ const PracticePage: React.FC = () => {
       .then((backendSlides: BackendSlide[]) => {
         if (backendSlides && backendSlides.length > 0) {
           const mapped: PracticeSlide[] = backendSlides.map((s) => ({
-            id: s.slideNumber,
+            id: s.id,
+            slideNumber: s.slideNumber,
             title: s.title || `Slide ${s.slideNumber}`,
             subtitle: s.originalHeadline || s.content || '',
           }));
@@ -86,10 +88,9 @@ const PracticePage: React.FC = () => {
     if (isRecording && slides.length > 0) {
       const targetSlide = slides[newIndex];
       practiceService.saveTimeline(sessionIdNum, {
-        slideNumber: targetSlide.id,
-        label: targetSlide.title,
+        slideId: targetSlide.id,
+        slideNumber: targetSlide.slideNumber,
         timestampSeconds: elapsed,
-        wpm: wpm || 130,
       }).catch((err) => console.warn('Timeline save milestone failed:', err));
     }
   };
@@ -180,10 +181,9 @@ const PracticePage: React.FC = () => {
         // Save initial timeline milestone for the first real slide
         if (slides.length > 0) {
           practiceService.saveTimeline(sessionIdNum, {
-            slideNumber: slides[0].id,
-            label: slides[0].title,
+            slideId: slides[0].id,
+            slideNumber: slides[0].slideNumber,
             timestampSeconds: 0,
-            wpm: 130,
           }).catch(() => {});
         }
 
@@ -239,7 +239,7 @@ const PracticePage: React.FC = () => {
             tabIndex={0}
             id={`slide-thumb-${sl.id}`}
           >
-            <div className={styles.thumbNum}>{sl.id}</div>
+            <div className={styles.thumbNum}>{sl.slideNumber}</div>
             <div className={styles.thumbTitle}>{sl.title}</div>
           </div>
         ))}

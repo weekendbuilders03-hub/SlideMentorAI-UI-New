@@ -12,7 +12,7 @@ import type {
   SlideReviewItem,
   BackendSession,
   BackendSlide,
-  RewriteResultResponse,
+  BatchRewriteSuggestion,
   ModifySuggestionRequest,
 } from '../../types/deck';
 
@@ -27,8 +27,8 @@ export const deckService = {
     );
     const sessions = unwrapResponse(data) ?? [];
     return sessions.map((sess) => ({
-      id: sess.id,
-      name: sess.title || `Presentation Session #${sess.id}`,
+      id: sess.sessionId,
+      name: sess.title || `Presentation Session #${sess.sessionId}`,
       slideCount: sess.slidesCount ?? 0,
       duration: `${sess.presentationTimeMinutes ?? 15}:00`,
       status: sess.status === 'completed' ? 'done' : 'progress',
@@ -52,15 +52,11 @@ export const deckService = {
     });
 
     // 2. Upload file to session
-    try {
-      await sessionService.uploadSlides(newSession.id, file);
-    } catch (err) {
-      console.warn('Slide upload notification:', err);
-    }
+    await sessionService.uploadSlides(newSession.sessionId, file);
 
     return {
-      id: newSession.id,
-      deckId: newSession.id,
+      id: newSession.sessionId,
+      deckId: newSession.sessionId,
       deckName: newSession.title || sessionName,
       currentPhase: 1,
       audience: newSession.audience || 'Executives',
@@ -71,9 +67,13 @@ export const deckService = {
 
   /**
    * Get slide review items for a session.
-   * GET /sessions/{sessionId}/slides & GET /api/v1/slides/{slideId}/rewrite
+   * GET /sessions/{sessionId}/slides & POST /api/v1/slides/rewrite/batch
    */
-  getReviewItems: async (sessionIdInput: string | number): Promise<SlideReviewItem[]> => {
+  getReviewItems: async (
+    sessionIdInput: string | number,
+    audience: string,
+    targetMinutes: number
+  ): Promise<SlideReviewItem[]> => {
     const numericId = typeof sessionIdInput === 'number'
       ? sessionIdInput
       : parseInt(sessionIdInput, 10) || 1;
@@ -89,35 +89,38 @@ export const deckService = {
       return [];
     }
 
-    const reviewItems: SlideReviewItem[] = await Promise.all(
-      slides.map(async (slide) => {
-        let rewrite: Partial<RewriteResultResponse> = {};
-        try {
-          rewrite = await sessionService.getRewriteResults(slide.id);
-        } catch {
-          // No rewrite generated yet for this slide
-        }
+    const rewrites: BatchRewriteSuggestion[] = await sessionService.batchRewrite({
+      slideIds: slides.map((slide) => slide.id),
+      audience,
+      targetMinutes,
+    });
+    const rewriteBySlideId = new Map(rewrites.map((rewrite) => [rewrite.slideId, rewrite]));
 
-        return {
+    return slides.map((slide) => {
+      const rewrite = rewriteBySlideId.get(slide.id);
+      const originalContentLines = (rewrite?.originalContent || slide.content || slide.contentPreview || '')
+        .split(/\r?\n/)
+        .filter((line) => line.trim().length > 0);
+      const status = rewrite?.status?.toLowerCase();
+
+      return {
           id: slide.id,
           slideId: slide.id,
-          suggestionId: rewrite.suggestionId,
+          suggestionId: rewrite?.suggestionId,
           slideNumber: slide.slideNumber,
           title: slide.title || `Slide ${slide.slideNumber}`,
           wordCount: slide.wordCount ?? 0,
           readTime: `${Math.ceil((slide.wordCount ?? 0) / 130)}m`,
           issues: slide.issues ?? [],
-          originalHeadline: rewrite.originalHeadline || slide.originalHeadline || slide.title || '',
-          originalBullets: rewrite.originalBullets || slide.originalBullets || [],
-          suggestedHeadline: rewrite.suggestedHeadline || slide.suggestedHeadline || '',
-          suggestedBullets: rewrite.suggestedBullets || slide.suggestedBullets || [],
-          reductionPercent: rewrite.reductionPercent ?? slide.reductionPercent ?? 0,
-          status: rewrite.status || 'pending',
+          suggestions: slide.suggestions ?? rewrite?.issuesDetected ?? [],
+          originalHeadline: slide.originalHeadline || originalContentLines[0] || slide.title || '',
+          originalBullets: slide.originalBullets || originalContentLines.slice(1),
+          suggestedHeadline: rewrite?.suggestedHeadline || slide.suggestedHeadline || '',
+          suggestedBullets: rewrite?.suggestedBullets || slide.suggestedBullets || [],
+          reductionPercent: slide.reductionPercent ?? 0,
+          status: status === 'accepted' ? 'accepted' : status === 'rejected' ? 'rejected' : 'pending',
         };
-      })
-    );
-
-    return reviewItems;
+    });
   },
 
   /* ── Pass-through sessionService operations ── */
@@ -128,6 +131,7 @@ export const deckService = {
   batchRewrite: sessionService.batchRewrite,
   getRewriteResults: sessionService.getRewriteResults,
   acceptSuggestion: sessionService.acceptSuggestion,
+  acceptSuggestionsBatch: sessionService.acceptSuggestionsBatch,
   rejectSuggestion: sessionService.rejectSuggestion,
   modifySuggestion: (suggestionId: number, payload: ModifySuggestionRequest) =>
     sessionService.modifySuggestion(suggestionId, payload),

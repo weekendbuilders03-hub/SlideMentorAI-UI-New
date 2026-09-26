@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useAppSelector } from '../../store/hooks';
 import { practiceService } from '../../api/services/practiceService';
 import { cn } from '../../utils/cn';
-import type { SpeechIndicator, TimelineSegment } from '../../types/practice';
+import SessionAnalysisDetails from '../../components/analysis/SessionAnalysisDetails';
+import type { BackendFullAnalysis, SpeechIndicator, TimelineSegment } from '../../types/practice';
 import styles from './Speech.module.scss';
 
 const SpeechPage: React.FC = () => {
@@ -11,6 +12,7 @@ const SpeechPage: React.FC = () => {
   const session = useAppSelector((state) => state.session.current);
   const [indicators, setIndicators] = useState<SpeechIndicator[]>([]);
   const [timeline, setTimeline] = useState<TimelineSegment[]>([]);
+  const [analysis, setAnalysis] = useState<BackendFullAnalysis | null>(null);
   const [expandedId, setExpandedId] = useState<string | number | null>(null);
 
   const sessionIdNum = typeof session?.id === 'number'
@@ -22,6 +24,7 @@ const SpeechPage: React.FC = () => {
   useEffect(() => {
     practiceService.getSpeechIndicators(sessionIdNum).then(setIndicators);
     practiceService.getTimeline(sessionIdNum).then(setTimeline);
+    practiceService.getFullAnalysis(sessionIdNum).then(setAnalysis).catch(() => setAnalysis(null));
   }, [sessionIdNum]);
 
   const maxWpm = Math.max(...timeline.map((t) => t.wpm), 1);
@@ -79,6 +82,8 @@ const SpeechPage: React.FC = () => {
           ))}
         </div>
       </div>
+
+      <SessionAnalysisDetails analysis={analysis} />
 
       {/* Indicators */}
       <div className={styles.indicatorGrid}>

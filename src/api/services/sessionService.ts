@@ -9,7 +9,10 @@ import { ENDPOINTS } from '../endpoints';
 import type {
   BackendSession,
   BackendSlide,
+  SessionSlidesResponse,
   CreateSessionRequest,
+  BatchRewriteRequest,
+  BatchRewriteSuggestion,
   RewriteResultResponse,
   ModifySuggestionRequest,
   SessionStatsResponse,
@@ -55,10 +58,12 @@ export const sessionService = {
    * GET /sessions/{sessionId}/slides
    */
   getSessionSlides: async (sessionId: number): Promise<BackendSlide[]> => {
-    const { data } = await apiClient.get<ApiResponse<BackendSlide[]>>(
+    const { data } = await apiClient.get<ApiResponse<SessionSlidesResponse | BackendSlide[]>>(
       ENDPOINTS.slides.bySession(sessionId)
     );
-    return unwrapResponse(data);
+    const payload = unwrapResponse(data);
+    const slides = Array.isArray(payload) ? payload : payload.slides;
+    return slides;
   },
 
   /**
@@ -77,12 +82,12 @@ export const sessionService = {
    * 5. Batch AI Rewrite
    * POST /api/v1/slides/rewrite/batch
    */
-  batchRewrite: async (sessionId: number): Promise<any> => {
-    const { data } = await apiClient.post<ApiResponse<any>>(
+  batchRewrite: async (payload: BatchRewriteRequest): Promise<BatchRewriteSuggestion[]> => {
+    const { data } = await apiClient.post<ApiResponse<BatchRewriteSuggestion[]>>(
       ENDPOINTS.slideRewrite.batch,
-      { sessionId }
+      payload
     );
-    return unwrapResponse(data);
+    return unwrapResponse(data) ?? [];
   },
 
   /**
@@ -103,6 +108,18 @@ export const sessionService = {
   acceptSuggestion: async (suggestionId: number): Promise<void> => {
     const { data } = await apiClient.post<ApiResponse<void>>(
       ENDPOINTS.slideRewrite.accept(suggestionId)
+    );
+    return unwrapResponse(data);
+  },
+
+  /**
+   * Accept all suggestions for a session.
+   * POST /api/v1/slides/suggestions/accept-batch
+   */
+  acceptSuggestionsBatch: async (suggestionIds: number[]): Promise<void> => {
+    const { data } = await apiClient.post<ApiResponse<void>>(
+      ENDPOINTS.slideRewrite.acceptBatch,
+      { suggestionIds }
     );
     return unwrapResponse(data);
   },

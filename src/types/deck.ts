@@ -32,6 +32,7 @@ export interface SlideReviewItem {
   wordCount: number;
   readTime: string;
   issues: SlideIssue[];
+  suggestions?: string[];
   originalHeadline: string;
   originalBullets: string[];
   suggestedHeadline: string;
@@ -49,7 +50,7 @@ export interface CreateSessionRequest {
 }
 
 export interface BackendSession {
-  id: number;
+  sessionId: number;
   title: string;
   audience: string;
   presentationTimeMinutes: number;
@@ -65,7 +66,17 @@ export interface BackendSlide {
   slideNumber: number;
   title: string;
   content?: string;
+  contentPreview?: string;
   wordCount: number;
+  fileUrl?: string | null;
+  engagementScore?: number | null;
+  engagementStatus?: string | null;
+  heatmapColor?: string | null;
+  readabilityScore?: number | null;
+  readabilityLabel?: string | null;
+  isOverloaded?: boolean;
+  overloadSeverity?: string | null;
+  suggestions?: string[];
   estimatedReadTimeSeconds?: number;
   issues?: Array<{ type: 'coral' | 'amber'; label: string }>;
   originalHeadline?: string;
@@ -75,9 +86,28 @@ export interface BackendSlide {
   reductionPercent?: number;
 }
 
+export interface SessionSlidesResponse {
+  fileUrl: string | null;
+  slides: BackendSlide[];
+}
+
 export interface BatchRewriteRequest {
-  sessionId: number;
-  slideIds?: number[];
+  slideIds: number[];
+  audience: string;
+  targetMinutes: number;
+}
+
+export interface BatchRewriteSuggestion {
+  suggestionId: number;
+  slideId: number;
+  slideNumber: number;
+  originalContent: string;
+  suggestedHeadline: string;
+  suggestedBullets: string[];
+  suggestedContent: string;
+  issuesDetected: string[];
+  status: string;
+  createdAt: string;
 }
 
 export interface RewriteResultResponse {

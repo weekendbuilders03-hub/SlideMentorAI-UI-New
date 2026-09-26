@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { advancePhase, setAudience, setTimeMinutes, setSession } from '../../store/slices/sessionSlice';
+import { extractApiError } from '../../api/axios';
 import { deckService } from '../../api/services/deckService';
 import { usageService } from '../../api/services/usageService';
 import Button from '../../components/common/Button/Button';
@@ -29,10 +30,13 @@ const SlidesPage: React.FC = () => {
   const [phase, setPhase] = useState<1 | 2 | 3 | 4>(1);
   const [dragging, setDragging] = useState(false);
   const [fileName, setFileName] = useState('');
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [audience, setAudienceLocal] = useState('Executives');
   const [timeMinutes, setTimeLocal] = useState(15);
   const [reviewItems, setReviewItems] = useState<SlideReviewItem[]>([]);
+  const [acceptingSuggestionIds, setAcceptingSuggestionIds] = useState<number[]>([]);
   const [expandedId, setExpandedId] = useState<number | string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -47,16 +51,20 @@ const SlidesPage: React.FC = () => {
 
   /* ── Upload handlers ── */
   const handleFile = async (file: File) => {
-    if (!file) return;
+    if (!file || isUploading) return;
+    setIsUploading(true);
+    setUploadError(null);
     setFileName(file.name);
     try {
       usageService.consumeUsage().catch(() => {});
       const sess = await deckService.uploadDeck(file);
       dispatch(setSession(sess));
+      goToPhase(2);
     } catch (err) {
-      console.error('Upload session failed, using fallback local session:', err);
+      setUploadError(`Upload failed: ${extractApiError(err)}`);
+    } finally {
+      setIsUploading(false);
     }
-    goToPhase(2);
   };
 
   const handleDrop = (e: React.DragEvent) => {
@@ -83,25 +91,45 @@ const SlidesPage: React.FC = () => {
       if (p >= 100) {
         clearInterval(interval);
 
-        // Trigger batch AI rewrite on the backend
-        deckService.batchRewrite(sessionIdNum).catch(() => {});
-
-        // Fetch slide review items
-        deckService.getReviewItems(sessionIdNum).then((items) => {
-          setReviewItems(items);
-          goToPhase(4);
-        });
+        deckService.getReviewItems(sessionIdNum, audience, timeMinutes)
+          .then((items) => {
+            setReviewItems(items);
+            goToPhase(4);
+          })
+          .catch(() => {
+            setReviewItems([]);
+            goToPhase(4);
+          });
       }
     }, 300);
   };
 
   const handleAcceptSuggestion = async (item: SlideReviewItem) => {
-    if (item.suggestionId) {
-      try {
-        await deckService.acceptSuggestion(item.suggestionId);
-      } catch (err) {
+    const suggestionId = item.suggestionId;
+    if (
+      typeof suggestionId !== 'number' ||
+      item.status === 'accepted' ||
+      acceptingSuggestionIds.includes(suggestionId)
+    ) {
+      return;
+    }
+    setAcceptingSuggestionIds((previous) => [...previous, suggestionId]);
+    try {
+      await deckService.acceptSuggestion(suggestionId);
+    } catch (err) {
+      const message = extractApiError(err);
+      if (message.toLowerCase().includes('already been accepted')) {
+        setReviewItems((previous) =>
+          previous.map((reviewItem) =>
+            reviewItem.id === item.id ? { ...reviewItem, status: 'accepted' } : reviewItem
+          )
+        );
+      } else {
         console.warn('Accept suggestion failed:', err);
       }
+      return;
+    } finally {
+      setAcceptingSuggestionIds((previous) => previous.filter((id) => id !== suggestionId));
     }
     setReviewItems((prev) =>
       prev.map((i) => (i.id === item.id ? { ...i, status: 'accepted' } : i))
@@ -109,16 +137,47 @@ const SlidesPage: React.FC = () => {
   };
 
   const handleRejectSuggestion = async (item: SlideReviewItem) => {
-    if (item.suggestionId) {
-      try {
-        await deckService.rejectSuggestion(item.suggestionId);
-      } catch (err) {
-        console.warn('Reject suggestion failed:', err);
-      }
+    if (typeof item.suggestionId !== 'number') {
+      return;
+    }
+    try {
+      await deckService.rejectSuggestion(item.suggestionId);
+    } catch (err) {
+      console.warn('Reject suggestion failed:', err);
+      return;
     }
     setReviewItems((prev) =>
       prev.map((i) => (i.id === item.id ? { ...i, status: 'skipped' } : i))
     );
+  };
+
+  const handleAcceptAll = async () => {
+    const suggestionIds = reviewItems
+      .filter((item) => item.status !== 'accepted')
+      .map((item) => item.suggestionId)
+      .filter((suggestionId): suggestionId is number =>
+        typeof suggestionId === 'number' && !acceptingSuggestionIds.includes(suggestionId)
+      );
+
+    if (suggestionIds.length === 0) return;
+    setAcceptingSuggestionIds((previous) => [...new Set([...previous, ...suggestionIds])]);
+
+    try {
+      await deckService.acceptSuggestionsBatch(suggestionIds);
+      setReviewItems((previous) =>
+        previous.map((item) =>
+          suggestionIds.includes(item.suggestionId ?? -1)
+            ? { ...item, status: 'accepted' }
+            : item
+        )
+      );
+    } catch (err) {
+      console.warn('Accept all suggestions failed:', err);
+    } finally {
+      setAcceptingSuggestionIds((previous) =>
+        previous.filter((id) => !suggestionIds.includes(id))
+      );
+    }
   };
 
   const goToPhase = (n: 1 | 2 | 3 | 4) => {
@@ -128,6 +187,9 @@ const SlidesPage: React.FC = () => {
 
   const AUDIENCE_OPTIONS = ['Executives', 'Investors', 'Technical', 'General public', 'Sales team'];
   const TIME_OPTIONS = [5, 10, 15, 20, 30];
+  const hasAcceptableSuggestions = reviewItems.some(
+    (item) => item.status !== 'accepted' && typeof item.suggestionId === 'number'
+  );
 
   return (
     <>
@@ -149,7 +211,7 @@ const SlidesPage: React.FC = () => {
             onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
             onDragLeave={() => setDragging(false)}
             onDrop={handleDrop}
-            onClick={() => fileInputRef.current?.click()}
+            onClick={() => { if (!isUploading) fileInputRef.current?.click(); }}
             role="button"
             tabIndex={0}
             id="upload-dropzone"
@@ -161,7 +223,9 @@ const SlidesPage: React.FC = () => {
               Drag and drop your presentation file, or click to browse. We'll analyse
               every slide and suggest improvements tailored to your audience.
             </p>
-            <Button variant="spotlight" id="upload-browse-btn">Browse files</Button>
+            <Button variant="spotlight" id="upload-browse-btn" disabled={isUploading}>
+              {isUploading ? 'Uploading…' : 'Browse files'}
+            </Button>
             <div className={s.uploadFormats}>
               {['PPTX', 'KEY', 'PDF', 'GSLIDES'].map((fmt) => (
                 <span key={fmt} className="format-pill">{fmt}</span>
@@ -172,10 +236,16 @@ const SlidesPage: React.FC = () => {
               type="file"
               accept=".pptx,.ppt,.key,.pdf"
               style={{ display: 'none' }}
-              onChange={(e) => { if (e.target.files?.[0]) handleFile(e.target.files[0]); }}
+              disabled={isUploading}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                e.target.value = '';
+                if (file) handleFile(file);
+              }}
               id="file-input"
             />
           </div>
+          {uploadError && <p className={s.uploadError} role="alert">{uploadError}</p>}
 
           <div className={s.promiseGrid}>
             {[
@@ -280,7 +350,15 @@ const SlidesPage: React.FC = () => {
               ))}
             </div>
             <div className={s.bulkActions}>
-              <Button variant="secondary" size="sm" id="accept-all-btn" onClick={() => reviewItems.forEach(handleAcceptSuggestion)}>Accept all</Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                id="accept-all-btn"
+                onClick={handleAcceptAll}
+                disabled={!hasAcceptableSuggestions || acceptingSuggestionIds.length > 0}
+              >
+                Accept all
+              </Button>
               <Button variant="secondary" size="sm" id="skip-all-btn" onClick={() => reviewItems.forEach(handleRejectSuggestion)}>Skip all</Button>
             </div>
           </div>
@@ -305,8 +383,19 @@ const SlidesPage: React.FC = () => {
                       ))}
                     </div>
                     <div className={s.rowActions}>
-                      <Button variant="secondary" size="sm" id={`accept-${item.id}`}
-                        onClick={(e) => { e.stopPropagation(); handleAcceptSuggestion(item); }}>✓ Accept</Button>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        id={`accept-${item.id}`}
+                        onClick={(e) => { e.stopPropagation(); handleAcceptSuggestion(item); }}
+                        disabled={
+                          typeof item.suggestionId !== 'number' ||
+                          item.status === 'accepted' ||
+                          acceptingSuggestionIds.includes(item.suggestionId)
+                        }
+                      >
+                        {item.status === 'accepted' ? 'Accepted' : '✓ Accept'}
+                      </Button>
                       <Button variant="ghost" size="sm" id={`skip-${item.id}`}
                         onClick={(e) => { e.stopPropagation(); handleRejectSuggestion(item); }}>Skip</Button>
                     </div>
@@ -335,11 +424,32 @@ const SlidesPage: React.FC = () => {
                           </ul>
                         </div>
                       </div>
+                      {item.suggestions && item.suggestions.length > 0 && (
+                        <div className={s.insightBox}>
+                          <div className={s.insightTitle}>AI suggestions</div>
+                          <ul className={s.insightList}>
+                            {item.suggestions.map((suggestion) => (
+                              <li key={suggestion}>{suggestion}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
                       <div className={s.panelActions}>
                         <Button variant="ghost" size="sm">Modify suggestion</Button>
                         <div className={s.panelActionsRight}>
                           <Button variant="secondary" size="sm" onClick={() => handleRejectSuggestion(item)}>Skip</Button>
-                          <Button variant="spotlight" size="sm" onClick={() => handleAcceptSuggestion(item)}>Accept suggestion</Button>
+                          <Button
+                            variant="spotlight"
+                            size="sm"
+                            onClick={() => handleAcceptSuggestion(item)}
+                            disabled={
+                              typeof item.suggestionId !== 'number' ||
+                              item.status === 'accepted' ||
+                              acceptingSuggestionIds.includes(item.suggestionId)
+                            }
+                          >
+                            {item.status === 'accepted' ? 'Accepted' : 'Accept suggestion'}
+                          </Button>
                         </div>
                       </div>
                     </div>

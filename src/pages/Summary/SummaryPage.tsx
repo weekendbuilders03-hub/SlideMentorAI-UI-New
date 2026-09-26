@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppSelector } from '../../store/hooks';
 import { practiceService } from '../../api/services/practiceService';
+import SessionAnalysisDetails from '../../components/analysis/SessionAnalysisDetails';
 import Button from '../../components/common/Button/Button';
 import type { PracticeSummary } from '../../types/practice';
 import styles from './Summary.module.scss';
@@ -20,7 +21,7 @@ const SummaryPage: React.FC = () => {
     practiceService.getSummary(sessionIdNum).then(setSummary);
   }, [sessionIdNum]);
 
-  const score = summary?.overallScore ?? 82;
+  const score = summary?.overallScore;
   const pct = `${score}%`;
   const firstName = user?.firstName || 'there';
 
@@ -33,17 +34,23 @@ const SummaryPage: React.FC = () => {
     <>
       {/* Hero */}
       <div className={styles.hero}>
-        <div className={styles.scoreRing}
-          style={{ background: `conic-gradient(var(--teal) 0% ${pct}, var(--surface-sunken) ${pct} 100%)` }}>
-          <div className={styles.scoreInner}>
-            <span className={styles.scoreNum}>{score}</span>
-            <span className={styles.scoreLabel}>/ 100</span>
+        {typeof score === 'number' && (
+          <div className={styles.scoreRing}
+            style={{ background: `conic-gradient(var(--teal) 0% ${pct}, var(--surface-sunken) ${pct} 100%)` }}>
+            <div className={styles.scoreInner}>
+              <span className={styles.scoreNum}>{score}</span>
+              <span className={styles.scoreLabel}>/ 100</span>
+            </div>
           </div>
-        </div>
+        )}
         <div>
-          <h2 className={styles.title}>Great session, {firstName}!</h2>
+          <h2 className={styles.title}>
+            {typeof score === 'number' ? `Great session, ${firstName}!` : `Session analysis, ${firstName}`}
+          </h2>
           <p className={styles.sub}>
-            You scored <strong>{score}/100</strong> for this session.
+            {typeof score === 'number'
+              ? <>You scored <strong>{score}/100</strong> for this session.</>
+              : 'Per-slide feedback from this session is ready.'}
           </p>
           <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
             <Button variant="spotlight" id="view-feedback-btn" onClick={() => navigate('/speech')}>
@@ -57,24 +64,32 @@ const SummaryPage: React.FC = () => {
       </div>
 
       {/* Stats */}
-      <div className={styles.grid}>
-        <div className={styles.card}>
-          <h4>Strengths</h4>
-          <ul className={styles.list}>
-            {strengths.map((s, i) => (
-              <li key={i} className={styles.good}>{s}</li>
-            ))}
-          </ul>
+      {(strengths.length > 0 || improvements.length > 0) && (
+        <div className={styles.grid}>
+          {strengths.length > 0 && (
+            <div className={styles.card}>
+              <h4>Strengths</h4>
+              <ul className={styles.list}>
+                {strengths.map((strength, index) => (
+                  <li key={index} className={styles.good}>{strength}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {improvements.length > 0 && (
+            <div className={styles.card}>
+              <h4>Areas to improve</h4>
+              <ul className={styles.list}>
+                {improvements.map((improvement, index) => (
+                  <li key={index} className={styles.improve}>{improvement}</li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
-        <div className={styles.card}>
-          <h4>Areas to improve</h4>
-          <ul className={styles.list}>
-            {improvements.map((s, i) => (
-              <li key={i} className={styles.improve}>{s}</li>
-            ))}
-          </ul>
-        </div>
-      </div>
+      )}
+
+      <SessionAnalysisDetails analysis={summary?.analysis ?? null} />
 
       {/* Next steps */}
       <div className={styles.nextCard}>

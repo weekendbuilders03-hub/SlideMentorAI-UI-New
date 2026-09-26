@@ -14,12 +14,13 @@ export interface PracticeSession {
 export interface PracticeSummary {
   id: string | number;
   sessionId: string | number;
-  overallScore: number;
-  duration: string;
-  wpmAverage: number;
-  fillerWordCount: number;
+  overallScore?: number;
+  duration?: string;
+  wpmAverage?: number;
+  fillerWordCount?: number;
   strengths: string[];
   improvements: string[];
+  analysis?: BackendFullAnalysis;
 }
 
 export type SpeechIndicatorScore = 'good' | 'mid' | 'low';
@@ -113,26 +114,55 @@ export interface BackendEngagementScore {
   vocalVarietyScore?: number;
 }
 
+export interface BackendSlidePacing {
+  slideId: number;
+  slideNumber: number;
+  wordCount: number;
+  startSecond: number;
+  endSecond: number;
+  durationSeconds: number;
+  wordsPerSecond: number;
+  pacing: string;
+}
+
+export interface BackendSlideEngagement {
+  slideId: number;
+  slideNumber: number;
+  engagementScore: number;
+  status: string;
+  heatmapColor: string;
+  reason: string;
+  wordCount?: number;
+  wordsPerSecond?: number;
+}
+
+export interface BackendSlideCoachingInsight {
+  slideNumber: number;
+  severity: string;
+  title: string;
+  message: string;
+  recommendation: string;
+}
+
 export interface BackendFullAnalysis {
-  sessionId: number;
-  overallScore: number;
-  averageWpm: number;
-  fillerWordCount: number;
+  sessionId?: number;
+  overallScore?: number;
+  averageWpm?: number;
+  fillerWordCount?: number;
   pauseCount?: number;
   duration?: string;
-  strengths: string[];
-  improvements: string[];
+  strengths?: string[];
+  improvements?: string[];
   indicators?: BackendSpeechIndicator[];
-  pacing?: BackendPacingAnalysis;
-  engagement?: BackendEngagementScore;
+  pacing?: BackendSlidePacing[];
+  engagement?: BackendSlideEngagement[];
+  coachingInsights?: BackendSlideCoachingInsight[];
 }
 
 export interface SaveTimelineRequest {
-  slideId?: number;
-  slideNumber?: number;
-  timestampSeconds?: number;
-  label?: string;
-  wpm?: number;
+  slideId: number;
+  slideNumber: number;
+  timestampSeconds: number;
 }
 
 export interface BackendTimelineResponse {

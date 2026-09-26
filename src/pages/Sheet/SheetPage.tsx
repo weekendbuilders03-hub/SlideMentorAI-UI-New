@@ -5,6 +5,7 @@ import { useAppSelector } from '../../store/hooks';
 import { sessionService } from '../../api/services/sessionService';
 import { practiceService } from '../../api/services/practiceService';
 import type { BackendFullAnalysis } from '../../types/practice';
+import type { BackendSlide } from '../../types/deck';
 import styles from './Sheet.module.scss';
 
 const SheetPage: React.FC = () => {
@@ -13,6 +14,7 @@ const SheetPage: React.FC = () => {
   const user = useAppSelector((state) => state.auth.user);
 
   const [analysis, setAnalysis] = useState<BackendFullAnalysis | null>(null);
+  const [slides, setSlides] = useState<BackendSlide[]>([]);
   const [downloading, setDownloading] = useState(false);
 
   const sessionIdNum = typeof session?.id === 'number'
@@ -29,6 +31,10 @@ const SheetPage: React.FC = () => {
     practiceService.getFullAnalysis(sessionIdNum)
       .then(setAnalysis)
       .catch(() => setAnalysis(null));
+
+    sessionService.getSessionSlides(sessionIdNum)
+      .then(setSlides)
+      .catch(() => setSlides([]));
   }, [sessionIdNum]);
 
   const handleDownloadPdf = async () => {
@@ -72,6 +78,7 @@ const SheetPage: React.FC = () => {
   const score = analysis?.overallScore ?? 82;
   const wpm = analysis?.averageWpm ?? 138;
   const fillers = analysis?.fillerWordCount ?? 7;
+  const slideSuggestions = slides.filter((slide) => slide.suggestions && slide.suggestions.length > 0);
 
   return (
     <div className={styles.doc}>
@@ -97,6 +104,26 @@ const SheetPage: React.FC = () => {
             </div>
           ))}
         </div>
+
+        {slideSuggestions.length > 0 && (
+          <>
+            <div className={styles.sectionH}>AI suggestions</div>
+            <div className={styles.suggestionBox}>
+              {slideSuggestions.map((slide) => (
+                <div key={slide.id} className={styles.suggestionSlide}>
+                  <div className={styles.suggestionSlideTitle}>
+                    Slide {slide.slideNumber}: {slide.title}
+                  </div>
+                  <ul className={styles.suggestionList}>
+                    {slide.suggestions?.map((suggestion) => (
+                      <li key={suggestion}>{suggestion}</li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
 
         <div className={styles.sectionH}>Coach's notes</div>
         {analysis?.strengths && analysis.strengths.length > 0 ? (
